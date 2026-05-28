@@ -1,0 +1,4135 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MovieGit</title>
+  <link rel="icon" type="image/svg+xml" href="favicon-tv-b.svg">
+  <meta property="og:title" content="MovieGit">
+  <meta property="og:description" content="A GitHub-profile-inspired personal film dashboard. Watch history, ratings, and streaks — visualized like a developer profile.">
+  <meta property="og:image" content="favicon-tv-b.svg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="MovieGit">
+  <meta name="twitter:description" content="Your film watch history, visualized like a GitHub profile.">
+  <meta name="twitter:image" content="favicon-tv-b.svg">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Theme tokens ── */
+    :root, [data-theme="dark"] {
+      --bg-canvas:     #0d1117;
+      --bg-primary:    #0d1117;
+      --bg-secondary:  #161b22;
+      --bg-tertiary:   #21262d;
+      --bg-overlay:    #30363d;
+      --border:        #30363d;
+      --border-muted:  #21262d;
+      --text-primary:  #e6edf3;
+      --text-secondary:#8b949e;
+      --text-tertiary: #6e7681;
+      --accent-green:  #3fb950;
+      --accent-blue:   #58a6ff;
+      --accent-purple: #bc8cff;
+      --accent-orange: #e3b341;
+      --trend-up:      #3fb950;
+      --trend-dn:      #f85149;
+      --c0: #161b22;
+      --c1: #0e4429;
+      --c2: #006d32;
+      --c3: #26a641;
+      --c4: #39d353;
+      --card-bg:    #161b22;
+      --font-mono:  'ui-monospace','SFMono-Regular','SF Mono',Consolas,monospace;
+      --r-sm: 4px; --r-md: 6px; --r-lg: 8px;
+    }
+
+    [data-theme="light"] {
+      --bg-canvas:     #f6f8fa;
+      --bg-primary:    #ffffff;
+      --bg-secondary:  #f6f8fa;
+      --bg-tertiary:   #eaeef2;
+      --bg-overlay:    #d0d7de;
+      --border:        #d0d7de;
+      --border-muted:  #eaeef2;
+      --text-primary:  #1f2328;
+      --text-secondary:#59636e;
+      --text-tertiary: #818b98;
+      --accent-green:  #1a7f37;
+      --accent-blue:   #0969da;
+      --accent-purple: #8250df;
+      --accent-orange: #9a6700;
+      --trend-up:      #1a7f37;
+      --trend-dn:      #cf222e;
+      --c0: #ebedf0;
+      --c1: #9be9a8;
+      --c2: #40c463;
+      --c3: #30a14e;
+      --c4: #216e39;
+      --card-bg: #ffffff;
+    }
+
+    /* ── Base ── */
+    html, body {
+      height: 100%;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Root layout ── */
+    .mg {
+      max-width: 1280px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .mg-header {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .mg-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .mg-logo-icon {
+      width: 32px; height: 32px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .mg-logo-icon img { width: 32px; height: 32px; display: block; }
+
+    .mg-nav {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .mg-nav a {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 13px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-radius: var(--r-md);
+      border: 1px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color .12s, background .12s;
+    }
+
+    .mg-nav a:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+    .mg-nav a.active {
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      border-color: var(--border);
+    }
+
+    .mg-nav a i { font-size: 14px; }
+
+    .mg-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--bg-overlay);
+      color: var(--text-secondary);
+    }
+
+    .mg-header-right { display: flex; align-items: center; gap: 8px; }
+
+    .icon-btn {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color .12s, background .12s;
+    }
+
+    .icon-btn:hover { color: var(--text-primary); background: var(--bg-overlay); }
+    .icon-btn i { font-size: 16px; }
+
+    /* ── Body grid ── */
+    .mg-body {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      flex: 1;
+      align-items: start;
+    }
+
+    /* ── Sidebar ── */
+    .mg-sidebar {
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: sticky;
+      top: 56px;
+      height: calc(100vh - 56px);
+      overflow-y: auto;
+      background: var(--bg-secondary);
+    }
+
+    .mg-sidebar::-webkit-scrollbar { width: 0; }
+
+    /* Avatar */
+    .avatar-block { display: flex; flex-direction: column; gap: 10px; }
+
+    .avatar-wrap { position: relative; width: fit-content; }
+
+    .avatar {
+      width: 68px; height: 68px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--bg-overlay), var(--bg-tertiary));
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 600;
+      color: var(--text-secondary);
+      overflow: hidden;
+    }
+
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .avatar-online {
+      position: absolute; bottom: 3px; right: 3px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      border: 2px solid var(--bg-secondary);
+    }
+
+    .user-name  { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    .user-handle{ font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .user-bio {
+      font-size: 12px; color: var(--text-secondary);
+      line-height: 1.6;
+      border-left: 2px solid var(--border);
+      padding-left: 10px;
+      font-style: italic;
+    }
+
+    /* Sidebar stats */
+    .sidebar-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+
+    .ss-tile {
+      padding: 8px 4px;
+      border-radius: var(--r-md);
+      background: var(--bg-tertiary);
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      text-align: center;
+    }
+
+    .ss-tile .v { font-size: 14px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .ss-tile .l { font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-tertiary); }
+
+    /* Sidebar sections */
+    .s-section { display: flex; flex-direction: column; gap: 8px; }
+
+    .s-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    /* Genre bars */
+    .genre-row {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 11px;
+    }
+
+    .genre-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .genre-name { flex: 1; color: var(--text-secondary); }
+
+    .genre-track {
+      width: 56px; height: 3px;
+      background: var(--bg-overlay);
+      border-radius: 999px; overflow: hidden;
+    }
+
+    .genre-fill { height: 100%; border-radius: 999px; }
+    .genre-pct  { width: 26px; text-align: right; color: var(--text-tertiary); font-size: 10px; }
+
+    /* Pinned */
+    .pin-card {
+      padding: 9px 10px;
+      border: 1px solid var(--border-muted);
+      border-radius: var(--r-md);
+      background: var(--bg-primary);
+      cursor: pointer;
+      transition: border-color .12s;
+    }
+
+    .pin-card:hover { border-color: var(--border); }
+    .pin-card + .pin-card { margin-top: 5px; }
+    .pin-card .pt { font-size: 12px; font-weight: 500; color: var(--text-primary); font-family: -apple-system, 'Segoe UI', sans-serif; }
+    .pin-card .pm { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+    /* Sidebar footer */
+    .s-footer {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-muted);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .s-footer span { color: var(--text-secondary); }
+
+    /* ── Main ── */
+    .mg-main {
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; flex-direction: column; gap: 14px; }
+    .tab-panel.active { display: flex; }
+
+    /* ── Panel / card ── */
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--card-bg);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .panel-label {
+      font-size: 12px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .panel-label i { font-size: 14px; }
+    .panel-sub { font-size: 11px; color: var(--text-tertiary); }
+    .panel-body { padding: 16px; }
+
+    /* ── Contribution graph ── */
+    .contrib-wrap { padding: 16px; }
+
+    .contrib-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .contrib-headline { font-size: 13px; color: var(--text-primary); }
+    .contrib-headline strong { font-weight: 600; }
+
+    .contrib-streak {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+
+    .streak-pip {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 4px var(--accent-green);
+    }
+    [data-theme="light"] .streak-pip {
+      box-shadow: none;
+    }
+
+    /* Month row */
+    .contrib-month-row {
+      display: flex;
+      padding-left: 26px;
+      margin-bottom: 4px;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .month-lbl {
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    /* Grid row: day labels + cells */
+    .contrib-grid-row {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 0;
+    }
+
+    .day-labels {
+      display: grid;
+      grid-template-rows: repeat(7, 1fr);
+      font-size: 9px;
+      color: var(--text-tertiary);
+      text-align: right;
+      padding-right: 5px;
+      line-height: 1;
+    }
+
+    .contrib-grid {
+      display: grid;
+      grid-template-columns: repeat(53, 1fr);
+      grid-template-rows: repeat(7, 1fr);
+      grid-auto-flow: column;
+      gap: 2.5px;
+    }
+
+    .cg-cell {
+      aspect-ratio: 1;
+      border-radius: 2px;
+      cursor: default;
+      position: relative;
+    }
+
+    .cg-cell[data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-overlay);
+      color: var(--text-primary);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: var(--r-sm);
+      white-space: nowrap;
+      z-index: 20;
+      border: 1px solid var(--border);
+      pointer-events: none;
+    }
+
+    .c0{background:var(--c0)} .c1{background:var(--c1)}
+    .c2{background:var(--c2)} .c3{background:var(--c3)} .c4{background:var(--c4)}
+
+    .contrib-legend {
+      display: flex; align-items: center; gap: 4px;
+      justify-content: flex-end;
+      margin-top: 8px;
+      font-size: 10px; color: var(--text-tertiary);
+    }
+
+    .cl-cell { width: 10px; height: 10px; border-radius: 2px; }
+
+    /* ── Metric cards ── */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 11px;
+    }
+
+    .mcard {
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 14px 15px;
+      background: var(--card-bg);
+      display: flex; flex-direction: column;
+    }
+
+    .mcard-icon {
+      width: 30px; height: 30px;
+      border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .mi-rating { background: rgba(227,179,65,.18);  color: var(--accent-orange); }
+    .mi-time   { background: rgba(88,166,255,.18);  color: var(--accent-blue);   }
+    .mi-month  { background: rgba(63,185,80,.18);   color: var(--accent-green);  }
+    .mi-rewatch{ background: rgba(188,140,255,.18); color: var(--accent-purple); }
+    [data-theme="light"] .mi-rating { background: rgba(154,103,0,.12); }
+    [data-theme="light"] .mi-time   { background: rgba(9,105,218,.1);  }
+    [data-theme="light"] .mi-month  { background: rgba(26,127,55,.1);  }
+    [data-theme="light"] .mi-rewatch{ background: rgba(130,80,223,.1); }
+
+    .mcard .mv { font-size: 24px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .mcard .ml { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    .mcard .md {
+      font-size: 11px;
+      margin-top: 10px;
+      display: flex; align-items: center; gap: 4px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-muted);
+    }
+
+    .md.up { color: var(--trend-up); }
+    .md.dn { color: var(--trend-dn); }
+    .md.nt { color: var(--text-tertiary); }
+    .md i { font-size: 12px; }
+
+    /* ── Two-col charts row ── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 13px;
+    }
+
+    /* ── Rating bars ── */
+    .rbar-row {
+      display: flex; align-items: center; gap: 9px;
+      margin-bottom: 8px; font-size: 12px;
+    }
+
+    .rbl { width: 20px; color: var(--text-secondary); text-align: right; font-family: -apple-system, 'Segoe UI', sans-serif; }
+
+    .rb-track {
+      flex: 1; height: 7px;
+      background: var(--bg-tertiary);
+      border-radius: 999px; overflow: hidden;
+    }
+
+    .rb-fill {
+      height: 100%; border-radius: 999px;
+      background: var(--c3);
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+
+    .rbc { width: 28px; text-align: right; color: var(--text-tertiary); font-size: 11px; }
+
+    /* ── Streak cards ── */
+    .streak-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+
+    .streak-card {
+      padding: 10px 12px;
+      border-radius: var(--r-md);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-muted);
+      display: flex; flex-direction: column; gap: 3px;
+    }
+
+    .streak-val { font-size: 18px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .streak-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-tertiary); }
+
+    /* ── Activity feed ── */
+    .activity-feed { display: flex; flex-direction: column; }
+
+    .af-item {
+      display: grid;
+      grid-template-columns: 38px 1fr auto;
+      gap: 11px;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border-muted);
+      align-items: start;
+      transition: background .1s;
+    }
+
+    .af-item:last-child { border-bottom: none; }
+    .af-item:hover { background: var(--bg-secondary); }
+
+    .af-poster {
+      width: 36px; height: 54px;
+      border-radius: 3px;
+      background: var(--bg-tertiary);
+      overflow: hidden;
+      border: 1px solid var(--border-muted);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .af-poster img { width: 100%; height: 100%; object-fit: cover; }
+    .af-poster i { font-size: 16px; color: var(--text-tertiary); }
+
+    .af-content { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+    .af-title {
+      font-size: 13px; font-weight: 500; color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .af-meta { font-size: 11px; color: var(--text-secondary); }
+    .af-stars { color: #EF9F27; letter-spacing: .5px; font-family: -apple-system, 'Segoe UI', sans-serif; }
+
+    .af-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-muted);
+      background: var(--bg-secondary);
+      color: var(--text-tertiary);
+      margin-top: 3px;
+      width: fit-content;
+    }
+
+    .af-chip i { font-size: 11px; }
+    .chip-log    { color: var(--accent-green); }
+    .chip-rewatch{ color: var(--accent-purple); }
+    .chip-canon  { color: var(--accent-orange); }
+
+    .af-time { font-size: 10px; color: var(--text-tertiary); white-space: nowrap; margin-top: 2px; }
+
+    /* ── Import zone ── */
+    .import-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--r-lg);
+      padding: 40px 24px;
+      text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+
+    .import-zone:hover, .import-zone.drag-over {
+      border-color: var(--accent-green);
+      background: rgba(63,185,80,.04);
+    }
+
+    .import-zone > i { font-size: 32px; color: var(--text-tertiary); }
+    .import-zone h3 { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+    .import-zone p  { font-size: 12px; color: var(--text-secondary); line-height: 1.7; max-width: 340px; }
+
+    .btn-row { display: flex; gap: 8px; }
+
+    .btn-primary, .btn-secondary {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 15px;
+      font-size: 12px; font-family: var(--font-mono); font-weight: 500;
+      border-radius: var(--r-md); cursor: pointer;
+      transition: opacity .12s, background .12s;
+    }
+
+    .btn-primary  { background: var(--accent-green); color: #fff; border: none; }
+    .btn-primary:hover { opacity: .88; }
+
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--bg-overlay); }
+
+    input[type="file"] { display: none; }
+
+    /* ── Tab stub ── */
+    .tab-stub {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 380px; gap: 12px; text-align: center; color: var(--text-tertiary);
+    }
+
+    .tab-stub > i  { font-size: 38px; }
+    .tab-stub h3   { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+    .tab-stub p    { font-size: 12px; max-width: 280px; line-height: 1.7; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 22px; right: 22px;
+      background: var(--bg-overlay);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 9px 15px;
+      font-size: 12px;
+      display: flex; align-items: center; gap: 8px;
+      z-index: 1000;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast i { font-size: 15px; }
+    .toast.success i { color: var(--accent-green); }
+    .toast.error   i { color: var(--trend-dn); }
+    .toast.info    i { color: var(--accent-blue); }
+
+    /* ══════════════════════════════════════════
+       DIARY
+    ══════════════════════════════════════════ */
+
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filter-search-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .filter-search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: var(--text-tertiary);
+      pointer-events: none;
+    }
+
+    .filter-search {
+      width: 100%;
+      padding: 7px 10px 7px 32px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .filter-search:focus { border-color: var(--accent-green); }
+    .filter-search::placeholder { color: var(--text-tertiary); }
+
+    .filter-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    .filter-select {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      color: var(--text-secondary);
+      outline: none;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+
+    .filter-select:focus { border-color: var(--accent-green); color: var(--text-primary); }
+    .filter-select:not([value=""]) { color: var(--text-primary); border-color: var(--accent-blue); }
+
+    .filter-toggle {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .filter-toggle i { font-size: 13px; }
+    .filter-toggle[data-active="true"] {
+      background: rgba(239,159,39,.12);
+      border-color: #EF9F27;
+      color: #EF9F27;
+    }
+
+    .filter-count { font-size: 11px; color: var(--text-tertiary); white-space: nowrap; margin-left: auto; }
+
+    /* Diary rows */
+    .diary-row {
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      gap: 14px;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border-muted);
+      align-items: center;
+      transition: background .1s;
+      cursor: default;
+    }
+
+    .diary-row:last-child { border-bottom: none; }
+    .diary-row:hover { background: var(--bg-secondary); }
+
+    .diary-poster {
+      width: 40px; height: 60px;
+      border-radius: 3px;
+      background: var(--bg-tertiary);
+      overflow: hidden;
+      border: 1px solid var(--border-muted);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .diary-poster img { width: 100%; height: 100%; object-fit: cover; }
+    .diary-poster i { font-size: 16px; color: var(--text-tertiary); }
+
+    .diary-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+    .diary-title {
+      font-size: 13px; font-weight: 500; color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .diary-meta { font-size: 11px; color: var(--text-secondary); }
+    .diary-stars { color: #EF9F27; font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 12px; }
+
+    .diary-badges { display: flex; align-items: center; gap: 5px; margin-top: 2px; flex-wrap: wrap; }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    .badge-canon  { background: rgba(239,159,39,.1); border-color: rgba(239,159,39,.35); color: #EF9F27; }
+    .badge-rewatch{ background: rgba(188,140,255,.1); border-color: rgba(188,140,255,.35); color: var(--accent-purple); }
+    .badge-tag    { background: var(--bg-tertiary); border-color: var(--border-muted); color: var(--text-tertiary); }
+
+    .diary-date {
+      font-size: 11px; color: var(--text-tertiary);
+      white-space: nowrap; text-align: right; min-width: 72px;
+    }
+
+    /* Pagination */
+    .diary-pagination {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      padding: 14px 16px;
+      border-top: 1px solid var(--border-muted);
+    }
+
+    .pag-btn { padding: 5px 12px; font-size: 12px; }
+    .pag-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .pag-info { font-size: 12px; color: var(--text-tertiary); }
+
+    /* ══════════════════════════════════════════
+       STATS
+    ══════════════════════════════════════════ */
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .stats-panel { min-height: 180px; }
+    .stats-panel-wide { grid-column: 1 / -1; }
+
+    /* Horizontal bar chart */
+    .stat-bar-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 9px; font-size: 12px;
+    }
+
+    .stat-bar-lbl { min-width: 90px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat-bar-lbl.narrow { min-width: 60px; }
+
+    .stat-bar-track {
+      flex: 1; height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 999px; overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%; border-radius: 999px;
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+
+    .stat-bar-val { min-width: 32px; text-align: right; color: var(--text-tertiary); font-size: 11px; }
+    .stat-bar-avg { min-width: 28px; text-align: right; color: var(--text-tertiary); font-size: 10px; opacity: .7; }
+
+    /* Rating-over-time sparkline */
+    .rating-timeline {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      height: 100px;
+      padding-bottom: 2px;
+    }
+
+    .rt-col {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 3px; flex: 1; min-width: 0;
+    }
+
+    .rt-bar-wrap {
+      flex: 1; width: 100%;
+      display: flex; align-items: flex-end;
+      min-height: 0;
+    }
+
+    .rt-bar {
+      width: 100%; border-radius: 2px 2px 0 0;
+      background: var(--c3);
+      transition: height .3s ease;
+      min-height: 2px;
+    }
+
+    .rt-lbl { font-size: 9px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; width: 100%; text-align: center; }
+
+    /* Numbers grid */
+    .numbers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .num-card {
+      padding: 10px 12px;
+      border-radius: var(--r-md);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-muted);
+    }
+
+    .num-val { font-size: 20px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .num-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-tertiary); margin-top: 4px; }
+
+    /* ══════════════════════════════════════════
+       CANON
+    ══════════════════════════════════════════ */
+
+    .canon-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .canon-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .canon-sub   { font-size: 12px; color: var(--text-tertiary); margin-left: 8px; }
+
+    .canon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .canon-tiers { padding: 4px 0; }
+
+    .canon-card {
+      border-radius: var(--r-md);
+      overflow: hidden;
+      border: 1px solid var(--border-muted);
+      background: var(--bg-secondary);
+      cursor: pointer;
+      transition: border-color .15s, transform .15s;
+      position: relative;
+    }
+
+    .canon-card:hover {
+      border-color: var(--accent-green);
+      transform: translateY(-2px);
+    }
+
+    .canon-poster {
+      width: 100%;
+      aspect-ratio: 2/3;
+      background: var(--bg-tertiary);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .canon-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .canon-poster i   { font-size: 28px; color: var(--text-tertiary); }
+
+    .canon-card-footer {
+      padding: 7px 8px;
+      display: flex; flex-direction: column; gap: 1px;
+    }
+
+    .canon-card-title {
+      font-size: 11px; font-weight: 500; color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .canon-card-meta { font-size: 10px; color: var(--text-tertiary); }
+    .canon-card-stars { font-size: 11px; color: #EF9F27; font-family: -apple-system,'Segoe UI',sans-serif; }
+
+    /* Detail overlay */
+    .canon-overlay {
+      position: fixed; inset: 0;
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .canon-overlay-bg {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.6);
+      backdrop-filter: blur(4px);
+    }
+
+    .canon-detail {
+      position: relative; z-index: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 0;
+      overflow: hidden;
+      max-width: 500px;
+      width: calc(100vw - 48px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+
+    .cd-poster {
+      width: 160px;
+      aspect-ratio: 2/3;
+      background: var(--bg-tertiary);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .cd-poster img { width: 100%; height: 100%; object-fit: cover; }
+    .cd-poster i   { font-size: 36px; color: var(--text-tertiary); }
+
+    .cd-info {
+      padding: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .cd-title { font-size: 16px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+    .cd-director { font-size: 12px; color: var(--text-secondary); }
+    .cd-year { font-size: 12px; color: var(--text-tertiary); }
+    .cd-stars { font-size: 18px; color: #EF9F27; font-family: -apple-system,'Segoe UI',sans-serif; }
+    .cd-meta-row { font-size: 11px; color: var(--text-tertiary); display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .cd-close {
+      position: absolute; top: 12px; right: 12px;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--bg-overlay);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px;
+      transition: color .12s, background .12s;
+      z-index: 2;
+    }
+
+    .cd-close:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+
+    /* ── Taste DNA ── */
+    .dna-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .dna-trait {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border-radius: var(--r-md);
+      border: 0.5px solid var(--border-muted);
+    }
+    .dna-icon { font-size: 18px; color: var(--accent-green); margin-top: 1px; flex-shrink: 0; }
+    .dna-label { font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+    .dna-value { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+    .dna-summary {
+      font-size: 12px; color: var(--text-secondary);
+      padding: 10px 14px;
+      background: var(--bg-tertiary);
+      border-radius: var(--r-md);
+      border-left: 2px solid var(--accent-green);
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* ── Temporal patterns ── */
+    .temporal-grid {
+      display: flex; align-items: stretch; gap: 5px;
+      height: 90px; margin-bottom: 6px;
+    }
+    .temp-col {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .temp-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; min-height: 0; }
+    .temp-bar {
+      width: 100%; border-radius: 2px 2px 0 0;
+      background: var(--accent-blue);
+      min-height: 2px;
+      transition: height .35s ease;
+      opacity: 0.75;
+    }
+    .temp-bar:hover { opacity: 1; }
+    .temp-lbl { font-size: 9px; color: var(--text-tertiary); }
+    .temp-count { font-size: 9px; color: var(--text-secondary); }
+    .temp-caption { font-size: 10px; color: var(--text-tertiary); text-align: center; margin-top: 4px; }
+
+    /* ── Hottest takes ── */
+    .take-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 0;
+      border-bottom: 0.5px solid var(--border-muted);
+      font-size: 12px;
+    }
+    .take-row:last-child { border-bottom: none; }
+    .take-title { flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .take-consensus { font-size: 10px; color: var(--text-tertiary); white-space: nowrap; }
+    .take-delta {
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+      display: flex; align-items: center; gap: 2px;
+      padding: 2px 7px; border-radius: 99px;
+    }
+    .take-delta.take-up   { color: var(--accent-green); background: rgba(63,185,80,.1); }
+    .take-delta.take-down { color: #f85149; background: rgba(248,81,73,.1); }
+    .take-delta i { font-size: 11px; }
+
+    /* ── Discoveries ── */
+    .disc-grid {
+      display: flex; flex-direction: column; gap: 0;
+    }
+    .disc-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 0;
+      border-bottom: 0.5px solid var(--border-muted);
+    }
+    .disc-row:last-child { border-bottom: none; }
+    .disc-poster {
+      width: 34px; height: 50px; flex-shrink: 0;
+      background: var(--bg-tertiary); border-radius: var(--r-sm);
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+      color: var(--text-tertiary); font-size: 14px;
+    }
+    .disc-poster img { width: 100%; height: 100%; object-fit: cover; }
+    .disc-info { flex: 1; min-width: 0; }
+    .disc-title { font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .disc-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+    .disc-badge {
+      font-size: 10px; color: var(--accent-orange); white-space: nowrap;
+      background: rgba(227,179,65,.1); padding: 2px 6px; border-radius: 99px;
+    }
+
+    /* ── Hot takes callout (overview) ── */
+    .hottest-takes-callout {
+      background: linear-gradient(135deg, rgba(248,81,73,.08) 0%, rgba(227,179,65,.04) 100%);
+      border: 0.5px solid rgba(248,81,73,.3);
+      border-left: 2px solid var(--trend-dn);
+      border-radius: var(--r-md);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .htc-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+    .htc-items { display: flex; flex-direction: column; gap: 6px; }
+    .htc-item {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; gap: 8px;
+    }
+    .htc-film { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .htc-delta { font-weight: 600; color: var(--trend-dn); white-space: nowrap; }
+
+    /* ── Genre sparkline (sidebar) ── */
+    .genre-spark { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: var(--text-secondary); }
+    .genre-spark-name { flex: 0 0 60px; }
+    .genre-spark-bars { display: flex; align-items: center; gap: 2px; flex: 1; height: 16px; }
+    .genre-spark-bar { height: 100%; border-radius: 1px; background: var(--accent-green); opacity: 0.6; min-width: 2px; }
+
+    /* ── Tier shelf ── */
+    .tier-shelf { display: flex; flex-direction: column; gap: 14px; }
+    .tier-row {
+      display: flex; align-items: flex-start; gap: 14px;
+    }
+    .tier-label {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      width: 44px; min-height: 66px; flex-shrink: 0;
+      border-radius: var(--r-md);
+      border: 0.5px solid currentColor;
+    }
+    .tier-letter { font-size: 20px; font-weight: 700; line-height: 1; }
+    .tier-count  { font-size: 9px; opacity: .7; margin-top: 3px; }
+    .tier-films  { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+    .tier-poster {
+      width: 44px; height: 66px; border-radius: var(--r-sm);
+      overflow: hidden; cursor: pointer;
+      background: var(--bg-tertiary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: var(--text-tertiary);
+      transition: transform .18s ease, filter .18s ease;
+      flex-shrink: 0;
+    }
+    .tier-poster:hover { transform: translateY(-3px) scale(1.05); filter: brightness(1.15); }
+    .tier-poster img  { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tier-poster-fallback {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: var(--text-secondary); text-align: center; padding: 2px;
+    }
+    .canon-view-toggle {
+      display: flex; gap: 4px;
+    }
+    .cvt-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 12px; font-size: 12px; font-family: var(--font-mono);
+      background: var(--bg-secondary); border: 1px solid var(--border);
+      border-radius: var(--r-md); color: var(--text-secondary); cursor: pointer;
+      transition: all .15s ease;
+    }
+    .cvt-btn.active {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--accent-blue);
+    }
+    .cvt-btn i { font-size: 13px; }
+
+    /* ── Loading skeleton ── */
+    @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    .skeleton {
+      background: var(--bg-tertiary);
+      border-radius: var(--r-md);
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+    }
+    .skeleton-bar { height: 12px; margin-bottom: 8px; }
+    .skeleton-text { height: 16px; margin-bottom: 12px; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px 20px; text-align: center; color: var(--text-tertiary);
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
+    .empty-state-msg { font-size: 14px; line-height: 1.5; }
+
+    /* ── Tab transitions ── */
+    .tab-panel {
+      animation: fadeIn 0.2s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Button/input hover polish ── */
+    button, .filter-select, .filter-toggle, .canon-sort {
+      transition: all 0.15s ease;
+    }
+    button:hover:not(:disabled), .filter-select:hover, .filter-toggle:hover, .canon-sort:hover {
+      transform: translateY(-1px);
+    }
+    button:active:not(:disabled), .filter-select:active, .filter-toggle:active {
+      transform: translateY(0);
+    }
+
+    /* ── Diary row hover ── */
+    .diary-row {
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .diary-row:hover {
+      background: var(--bg-overlay);
+      border-radius: var(--r-md);
+      padding: 0 8px;
+      margin: 0 -8px;
+    }
+
+    /* ── Canon card hover ── */
+    .canon-card {
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .canon-card:hover {
+      transform: translateY(-4px);
+      filter: brightness(1.1);
+    }
+
+    /* Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bg-overlay); border-radius: 999px; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open {
+      display: flex;
+      opacity: 1;
+    }
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 24px;
+      max-width: 700px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+    .modal-section {
+      margin-bottom: 20px;
+    }
+    .modal-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+    .modal-section p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      margin: 0 0 8px 0;
+    }
+    .modal-tech-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .modal-tech-item {
+      background: var(--bg-tertiary);
+      padding: 4px 8px;
+      border-radius: var(--r-sm);
+      font-size: 12px;
+      color: var(--text-primary);
+      border: 0.5px solid var(--border);
+    }
+    .modal-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .modal-link:hover {
+      color: var(--accent-green);
+      text-decoration: underline;
+    }
+
+    /* ── Global transition ── */
+    html { transition: background-color .2s, color .15s; }
+    .panel, .mcard, .mg-header, .mg-sidebar, .pin-card,
+    .streak-card, .genre-track, .rb-track { transition: background .2s, border-color .2s; }
+
+    /* ── mg log (terminal diary view) ── */
+    .diary-log-toggle {
+      display: flex; gap: 4px;
+    }
+    .dlt-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 5px 10px; font-size: 11px; font-family: var(--font-mono);
+      background: var(--bg-secondary); border: 1px solid var(--border);
+      border-radius: var(--r-md); color: var(--text-secondary); cursor: pointer;
+      transition: all .15s;
+    }
+    .dlt-btn.active {
+      background: var(--bg-tertiary); color: var(--text-primary);
+      border-color: var(--accent-green);
+    }
+    .dlt-btn i { font-size: 13px; }
+
+    .mg-log-terminal {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 14px 16px;
+      line-height: 1.7;
+    }
+    .mg-log-terminal .log-prompt {
+      color: var(--accent-green);
+      margin-bottom: 10px;
+      user-select: none;
+    }
+    .mg-log-line {
+      display: flex; align-items: baseline; gap: 0;
+      white-space: pre;
+      color: var(--text-secondary);
+      padding: 1px 0;
+      border-radius: 2px;
+      transition: background .1s;
+    }
+    .mg-log-line:hover { background: var(--bg-tertiary); }
+    .log-hash  { color: var(--accent-orange);  flex-shrink: 0; }
+    .log-date  { color: var(--text-tertiary);  flex-shrink: 0; }
+    .log-title { color: var(--text-primary);   flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .log-stars { color: var(--accent-green);   flex-shrink: 0; }
+    .log-dir   { color: var(--text-tertiary);  flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+    .log-badge { font-size: 10px; background: var(--bg-overlay); color: var(--text-tertiary);
+                 padding: 0 4px; border-radius: 3px; margin-left: 4px; flex-shrink: 0; }
+
+    /* ── Director completion ── */
+    .dir-comp-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+      border-bottom: 0.5px solid var(--border-muted);
+    }
+    .dir-comp-row:last-child { border-bottom: none; }
+    .dir-comp-name { flex: 0 0 130px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dir-comp-track {
+      flex: 1; height: 4px;
+      background: var(--bg-overlay); border-radius: 999px; overflow: hidden;
+    }
+    .dir-comp-fill { height: 100%; border-radius: 999px; background: var(--accent-blue); transition: width .4s ease; }
+    .dir-comp-pct  { flex: 0 0 36px; text-align: right; color: var(--text-tertiary); font-size: 11px; }
+    .dir-comp-count{ flex: 0 0 60px; text-align: right; color: var(--text-secondary); font-size: 11px; }
+
+    /* ── Taste drift ── */
+    .drift-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; padding-bottom: 10px;
+      border-bottom: 0.5px solid var(--border);
+      font-size: 11px; color: var(--text-tertiary);
+    }
+    .drift-year-btn {
+      padding: 3px 8px; border-radius: var(--r-sm);
+      background: var(--bg-tertiary); border: 1px solid var(--border);
+      color: var(--text-secondary); font-family: var(--font-mono);
+      font-size: 11px; cursor: pointer; transition: all .15s;
+    }
+    .drift-year-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+    .drift-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .drift-card {
+      padding: 10px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--r-md);
+    }
+    .drift-card-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-tertiary); margin-bottom: 6px; }
+    .drift-val { font-size: 20px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .drift-delta {
+      display: inline-flex; align-items: center; gap: 2px;
+      font-size: 11px; font-weight: 600; margin-top: 3px;
+    }
+    .drift-delta.up   { color: var(--trend-up); }
+    .drift-delta.down { color: var(--trend-dn); }
+    .drift-delta.flat { color: var(--text-tertiary); }
+    .drift-genres { margin-top: 12px; }
+    .drift-genre-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--text-secondary);
+      padding: 4px 0;
+    }
+    .drift-genre-name { flex: 1; }
+    .drift-genre-prev { flex: 0 0 28px; text-align: center; color: var(--text-tertiary); font-size: 10px; }
+    .drift-genre-arrow { flex: 0 0 16px; text-align: center; font-size: 10px; }
+    .drift-genre-curr { flex: 0 0 28px; text-align: center; font-weight: 600; color: var(--text-primary); font-size: 10px; }
+
+    /* ── Mobile responsiveness ── */
+    @media (max-width: 900px) {
+      .mg-body {
+        grid-template-columns: 200px 1fr;
+      }
+      .mg-sidebar {
+        padding: 16px 12px;
+      }
+      .metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      /* Header: logo + actions only, nav wraps below */
+      .mg-header {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 10px 16px;
+        gap: 8px;
+      }
+      .mg-nav {
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        gap: 4px;
+      }
+      .mg-nav a {
+        font-size: 11px;
+        padding: 5px 10px;
+      }
+      .mg-nav a span { display: none; } /* hide text labels if too cramped */
+
+      /* Body: sidebar on top, main below */
+      .mg-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      .mg-sidebar {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 14px;
+        padding: 14px 16px;
+      }
+      .avatar-block { flex-direction: row; align-items: center; gap: 12px; flex: 0 0 auto; }
+      .sidebar-stats { grid-template-columns: repeat(3, 1fr); min-width: 160px; }
+      .s-section { display: none; } /* hide genre/pinned/footer on mobile */
+      .avatar-block .user-bio { display: none; }
+
+      /* Main area */
+      .mg-main { padding: 14px 12px; }
+      .metrics-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .stats-grid  { grid-template-columns: 1fr !important; }
+
+      /* Contribution graph: allow horizontal scroll */
+      .contrib-wrap { overflow-x: auto; }
+      .contrib-grid { min-width: 520px; }
+      .contrib-month-row { min-width: 546px; } /* 26px label + 520px grid */
+
+      /* Diary: hide director col */
+      .dr-director { display: none; }
+
+      /* Canon: fewer columns */
+      .canon-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    }
+
+    @media (max-width: 480px) {
+      .metrics-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .canon-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+      .mg-nav a { padding: 5px 8px; font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="mg">
+
+  <!-- ── Header ── -->
+  <header class="mg-header">
+    <div class="mg-logo">
+      <div class="mg-logo-icon"><img src="favicon-tv-b.svg" alt="MovieGit"></div>
+      MovieGit
+    </div>
+
+    <nav class="mg-nav">
+      <a class="active" data-tab="overview">
+        <i class="ti ti-layout-dashboard"></i>overview
+      </a>
+      <a data-tab="diary">
+        <i class="ti ti-book-2"></i>diary
+        <span class="mg-badge" id="badge-diary">—</span>
+      </a>
+      <a data-tab="stats">
+        <i class="ti ti-chart-bar"></i>stats
+      </a>
+      <a data-tab="canon">
+        <i class="ti ti-heart"></i>canon
+      </a>
+    </nav>
+
+    <div class="mg-header-right">
+      <button class="icon-btn" id="about-btn" aria-label="About MovieGit">
+        <i class="ti ti-help-circle"></i>
+      </button>
+      <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme">
+        <i class="ti ti-moon" id="theme-icon"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="mg-body">
+
+    <!-- ── Sidebar ── -->
+    <aside class="mg-sidebar">
+
+      <div class="avatar-block">
+        <div class="avatar-wrap">
+          <div class="avatar" id="sidebar-avatar">JZ</div>
+          <div class="avatar-online" title="Live polling active"></div>
+        </div>
+        <div>
+          <div class="user-name">Jeffrey Zhang</div>
+          <a class="user-handle" href="https://letterboxd.com/islaby/" target="_blank" rel="noopener" style="text-decoration:none;">@islaby</a>
+        </div>
+        <div class="user-bio">slow cinema, 1970s, films that ask too much of you</div>
+      </div>
+
+      <div class="sidebar-stats">
+        <div class="ss-tile"><span class="v" id="stat-logged">—</span><span class="l">logged</span></div>
+        <div class="ss-tile"><span class="v" id="stat-rewatches">—</span><span class="l">rewatches</span></div>
+        <div class="ss-tile"><span class="v" id="stat-runtime">—</span><span class="l">runtime</span></div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-title">top genres</div>
+        <div id="sidebar-genres">
+          <div style="font-size:11px;color:var(--text-tertiary)">Loading…</div>
+        </div>
+        <div id="sidebar-genre-sparklines" style="margin-top: 12px; padding-top: 12px; border-top: 0.5px solid var(--border); display: none;">
+          <!-- Will be populated with genre sparklines -->
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-title">pinned</div>
+        <div class="pin-card">
+          <div class="pt">★ Whiplash</div>
+          <div class="pm">Damien Chazelle · 2014</div>
+        </div>
+        <div class="pin-card">
+          <div class="pt">★ (500) Days of Summer</div>
+          <div class="pm">Marc Webb · 2009</div>
+        </div>
+        <div class="pin-card">
+          <div class="pt">★ 12 Angry Men</div>
+          <div class="pm">Sidney Lumet · 1957</div>
+        </div>
+        <div class="pin-card">
+          <div class="pt">★ Good Will Hunting</div>
+          <div class="pm">Gus Van Sant · 1997</div>
+        </div>
+      </div>
+
+      <div class="s-footer">
+        <i class="ti ti-calendar-event" style="font-size:12px;margin-right:4px"></i>
+        member since <span id="member-since">—</span>
+      </div>
+
+    </aside>
+
+    <!-- ── Main ── -->
+    <main class="mg-main">
+
+      <!-- Overview tab -->
+      <div class="tab-panel active" id="tab-overview">
+
+        <!-- Contribution graph -->
+        <div class="panel">
+          <div class="contrib-wrap">
+            <div class="contrib-head">
+              <div class="contrib-headline">
+                <strong id="contrib-count">—</strong> films logged in the last year
+              </div>
+              <div class="contrib-streak">
+                <div class="streak-pip"></div>
+                current streak: <strong id="streak-current">—</strong> days
+              </div>
+            </div>
+            <div class="contrib-month-row" id="contrib-months"></div>
+            <div class="contrib-grid-row">
+              <div class="day-labels">
+                <span></span><span>Mon</span><span></span>
+                <span>Wed</span><span></span><span>Fri</span><span></span>
+              </div>
+              <div class="contrib-grid" id="cgrid"></div>
+            </div>
+            <div class="contrib-legend">
+              <span>less</span>
+              <div class="cl-cell c0"></div><div class="cl-cell c1"></div>
+              <div class="cl-cell c2"></div><div class="cl-cell c3"></div>
+              <div class="cl-cell c4"></div>
+              <span>more</span>
+              <span id="last-synced" style="margin-left:auto;font-size:10px;color:var(--text-tertiary);opacity:0.7;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric cards -->
+        <div class="metrics-row">
+          <div class="mcard">
+            <div class="mcard-icon mi-rating"><i class="ti ti-star"></i></div>
+            <div class="mv" id="m-rating">—</div>
+            <div class="ml">avg rating</div>
+            <div class="md nt" id="md-rating"><i class="ti ti-minus"></i><span>no comparison yet</span></div>
+          </div>
+          <div class="mcard">
+            <div class="mcard-icon mi-time"><i class="ti ti-clock"></i></div>
+            <div class="mv" id="m-time">—</div>
+            <div class="ml">total watch time</div>
+            <div class="md nt" id="md-time"><i class="ti ti-minus"></i><span>calculating…</span></div>
+          </div>
+          <div class="mcard">
+            <div class="mcard-icon mi-month"><i class="ti ti-calendar"></i></div>
+            <div class="mv" id="m-month">—</div>
+            <div class="ml">this month</div>
+            <div class="md nt" id="md-month"><i class="ti ti-minus"></i><span>—</span></div>
+          </div>
+          <div class="mcard">
+            <div class="mcard-icon mi-rewatch"><i class="ti ti-refresh"></i></div>
+            <div class="mv" id="m-rewatches">—</div>
+            <div class="ml">rewatches</div>
+            <div class="md nt" id="md-rewatches"><i class="ti ti-minus"></i><span>—</span></div>
+          </div>
+        </div>
+
+        <!-- Hottest Takes callout -->
+        <div class="hottest-takes-callout">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <i class="ti ti-flame" style="font-size: 16px; color: #f85149;"></i>
+            <span style="font-weight: 600; color: var(--text-primary);">hottest takes</span>
+            <span style="font-size: 11px; color: var(--text-tertiary);">your biggest divergences</span>
+          </div>
+          <div id="hottest-takes-list" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11px; color: var(--text-tertiary);">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="charts-row">
+
+          <!-- Rating distribution -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-chart-bar"></i>rating distribution</div>
+              <span class="panel-sub" id="rated-count">— rated</span>
+            </div>
+            <div class="panel-body">
+              <div class="rbar-row"><span class="rbl">★5</span><div class="rb-track"><div class="rb-fill" id="rb5" style="width:0%"></div></div><span class="rbc" id="rc5">—</span></div>
+              <div class="rbar-row"><span class="rbl">★4</span><div class="rb-track"><div class="rb-fill" id="rb4" style="width:0%"></div></div><span class="rbc" id="rc4">—</span></div>
+              <div class="rbar-row"><span class="rbl">★3</span><div class="rb-track"><div class="rb-fill" id="rb3" style="width:0%"></div></div><span class="rbc" id="rc3">—</span></div>
+              <div class="rbar-row"><span class="rbl">★2</span><div class="rb-track"><div class="rb-fill" id="rb2" style="width:0%"></div></div><span class="rbc" id="rc2">—</span></div>
+              <div class="rbar-row"><span class="rbl">★1</span><div class="rb-track"><div class="rb-fill" id="rb1" style="width:0%"></div></div><span class="rbc" id="rc1">—</span></div>
+              <div class="streak-row">
+                <div class="streak-card">
+                  <span class="streak-val" id="streak-longest">—</span>
+                  <span class="streak-lbl">longest streak</span>
+                </div>
+                <div class="streak-card">
+                  <span class="streak-val" id="streak-best-month">—</span>
+                  <span class="streak-lbl">most active month</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity feed -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-git-commit"></i>recent commits</div>
+              <span class="panel-sub">activity log</span>
+            </div>
+            <div class="activity-feed" id="activity-feed">
+              <div style="padding:32px 20px;text-align:center;color:var(--text-tertiary);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+                <img src="favicon-tv-b.svg" style="width:36px;height:36px;opacity:0.4;">
+                <span>Loading activity…</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- CSV import zone (hidden until needed) -->
+        <div id="import-wrap" style="display:none">
+          <div class="import-zone" id="import-zone">
+            <i class="ti ti-file-spreadsheet"></i>
+            <h3>Seed your watch history</h3>
+            <p>Drop your Letterboxd diary CSV export here, or click to browse. Your full history powers the stats — RSS keeps it current after that.</p>
+            <div class="btn-row">
+              <button class="btn-primary" onclick="document.getElementById('csv-input').click()">
+                <i class="ti ti-upload"></i>Choose CSV
+              </button>
+              <button class="btn-secondary" onclick="MG.dismissImport()">
+                Skip for now
+              </button>
+            </div>
+            <input type="file" id="csv-input" accept=".csv">
+          </div>
+        </div>
+
+      </div><!-- /overview -->
+
+      <!-- ── Diary tab ── -->
+      <div class="tab-panel" id="tab-diary">
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+          <div class="filter-search-wrap">
+            <i class="ti ti-search filter-search-icon"></i>
+            <input class="filter-search" id="diary-search" type="text" placeholder="Search films…" autocomplete="off">
+          </div>
+          <div class="filter-pills">
+            <select class="filter-select" id="diary-year">
+              <option value="">All years</option>
+            </select>
+            <select class="filter-select" id="diary-genre">
+              <option value="">All genres</option>
+            </select>
+            <select class="filter-select" id="diary-rating">
+              <option value="">Any rating</option>
+              <option value="5">★5 only</option>
+              <option value="4">★4+</option>
+              <option value="3">★3+</option>
+            </select>
+            <button class="filter-toggle" id="diary-toggle-canon" data-active="false">
+              <i class="ti ti-heart"></i> Canon
+            </button>
+          </div>
+          <span class="filter-count" id="diary-count"></span>
+          <div class="diary-log-toggle">
+            <button class="dlt-btn active" id="dlt-grid" title="Grid view"><i class="ti ti-layout-list"></i></button>
+            <button class="dlt-btn" id="dlt-log" title="mg log view"><i class="ti ti-terminal-2"></i></button>
+          </div>
+        </div>
+
+        <!-- Film list (card view) -->
+        <div class="panel" id="diary-list-panel">
+          <div id="diary-list"></div>
+          <!-- Pagination -->
+          <div class="diary-pagination" id="diary-pagination">
+            <button class="btn-secondary pag-btn" id="diary-prev"><i class="ti ti-chevron-left"></i> Prev</button>
+            <span class="pag-info" id="diary-page-info"></span>
+            <button class="btn-secondary pag-btn" id="diary-next">Next <i class="ti ti-chevron-right"></i></button>
+          </div>
+        </div>
+
+        <!-- mg log terminal view -->
+        <div class="panel" id="diary-log-panel" style="display:none">
+          <div class="mg-log-terminal" id="diary-log-output"></div>
+        </div>
+
+      </div>
+
+      <!-- ── Stats tab ── -->
+      <div class="tab-panel" id="tab-stats">
+
+        <div class="stats-grid">
+
+          <!-- By decade -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-calendar-stats"></i>films by decade</div>
+            </div>
+            <div class="panel-body" id="stats-decades"></div>
+          </div>
+
+          <!-- Top directors -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-movie"></i>top directors</div>
+            </div>
+            <div class="panel-body" id="stats-directors"></div>
+          </div>
+
+          <!-- Rating over time -->
+          <div class="panel stats-panel stats-panel-wide">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-chart-line"></i>avg rating by month</div>
+              <span class="panel-sub" id="stats-rating-sub"></span>
+            </div>
+            <div class="panel-body" id="stats-rating-time"></div>
+          </div>
+
+          <!-- By genre (full) -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-tags"></i>genres</div>
+            </div>
+            <div class="panel-body" id="stats-genres"></div>
+          </div>
+
+          <!-- Snapshot stats -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-award"></i>by the numbers</div>
+            </div>
+            <div class="panel-body" id="stats-numbers"></div>
+          </div>
+
+          <!-- Rewatch analysis -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-refresh"></i>rewatches</div>
+              <span class="panel-sub" id="stats-rewatch-sub"></span>
+            </div>
+            <div class="panel-body" id="stats-rewatches"></div>
+          </div>
+
+          <!-- Composers -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-music"></i>composers</div>
+              <span class="panel-sub">soundtrack trends</span>
+            </div>
+            <div class="panel-body" id="stats-composers"></div>
+          </div>
+
+          <!-- Streak breakdown -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-flame"></i>streak breakdown</div>
+              <span class="panel-sub">watch streaks</span>
+            </div>
+            <div class="panel-body" id="stats-streaks"></div>
+          </div>
+
+          <!-- Blind spots -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-eye-off"></i>blind spots</div>
+              <span class="panel-sub">famous directors missed</span>
+            </div>
+            <div class="panel-body" id="stats-blindspots"></div>
+          </div>
+
+          <!-- Taste DNA (wide) -->
+          <div class="panel stats-panel stats-panel-wide">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-dna"></i>taste dna</div>
+              <span class="panel-sub">your film profile, by the data</span>
+            </div>
+            <div class="panel-body" id="stats-taste-dna"></div>
+          </div>
+
+          <!-- Temporal patterns -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-calendar-event"></i>watch patterns</div>
+              <span class="panel-sub">by month</span>
+            </div>
+            <div class="panel-body" id="stats-temporal"></div>
+          </div>
+
+          <!-- Hottest takes -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-flame"></i>hottest takes</div>
+              <span class="panel-sub">vs. consensus</span>
+            </div>
+            <div class="panel-body" id="stats-takes"></div>
+          </div>
+
+          <!-- Discoveries (wide) -->
+          <div class="panel stats-panel stats-panel-wide">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-sparkles"></i>discoveries</div>
+              <span class="panel-sub">films you rated 4+ that aren't on everyone's radar</span>
+            </div>
+            <div class="panel-body" id="stats-discoveries"></div>
+          </div>
+
+          <!-- Director completion -->
+          <div class="panel stats-panel">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-movie"></i>director completion</div>
+              <span class="panel-sub" id="stats-dircomp-sub">filmography coverage</span>
+            </div>
+            <div class="panel-body" id="stats-dircomp"></div>
+          </div>
+
+          <!-- Taste drift (wide) -->
+          <div class="panel stats-panel stats-panel-wide">
+            <div class="panel-header">
+              <div class="panel-label"><i class="ti ti-git-diff"></i>taste drift</div>
+              <span class="panel-sub" id="stats-drift-sub">year over year</span>
+            </div>
+            <div class="panel-body" id="stats-drift"></div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ── Canon tab ── -->
+      <div class="tab-panel" id="tab-canon">
+
+        <div class="canon-header">
+          <div>
+            <span class="canon-title">Canon</span>
+            <span class="canon-sub" id="canon-count"></span>
+          </div>
+          <div class="filter-pills" style="gap:8px">
+            <select class="filter-select" id="canon-sort">
+              <option value="date">Date added</option>
+              <option value="rating">Rating</option>
+              <option value="year">Film year</option>
+              <option value="title">Title A–Z</option>
+            </select>
+            <div class="canon-view-toggle" id="canon-view-toggle">
+              <button class="cvt-btn active" data-view="grid"><i class="ti ti-layout-grid"></i> Grid</button>
+              <button class="cvt-btn" data-view="tiers"><i class="ti ti-layout-rows"></i> Tiers</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="canon-grid" id="canon-grid"></div>
+        <div class="canon-tiers" id="canon-tiers" style="display:none"></div>
+
+        <!-- Detail overlay -->
+        <div class="canon-overlay" id="canon-overlay" style="display:none">
+          <div class="canon-detail" id="canon-detail"></div>
+          <div class="canon-overlay-bg" id="canon-overlay-bg"></div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <i class="ti ti-check" id="toast-icon"></i>
+  <span id="toast-msg"></span>
+</div>
+
+<!-- About Modal -->
+<div class="modal-overlay" id="about-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <img src="favicon-tv-b.svg" alt="MovieGit" style="width:32px;height:32px;flex-shrink:0;">
+        <h2 class="modal-title">about MovieGit</h2>
+      </div>
+      <button class="modal-close" id="modal-close"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="modal-section">
+      <p><strong>MovieGit</strong> is a GitHub-profile-inspired personal film dashboard that visualizes your watch history, ratings, and activity patterns in the language of a developer.</p>
+      <p>Rather than a traditional review site, MovieGit reimagines cinema through the lens of version control — watching a film becomes a commit, streaks become contribution patterns, and your taste is measured in data.</p>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">how it works</div>
+      <p>Your data comes from three sources:</p>
+      <ul style="margin: 0 0 8px 16px; font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+        <li><strong>Letterboxd CSV</strong> — your full watch history (imported once)</li>
+        <li><strong>Letterboxd RSS</strong> — live polling every 5 minutes for new entries</li>
+        <li><strong>TMDB API</strong> — metadata enrichment (posters, genres, directors, ratings)</li>
+      </ul>
+      <p>Everything is processed client-side and stored locally — no backend, no tracking, no servers.</p>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">tech stack</div>
+      <div class="modal-tech-list">
+        <span class="modal-tech-item">HTML5</span>
+        <span class="modal-tech-item">Vanilla JS</span>
+        <span class="modal-tech-item">CSS3</span>
+        <span class="modal-tech-item">localStorage</span>
+        <span class="modal-tech-item">Letterboxd RSS</span>
+        <span class="modal-tech-item">TMDB API v3</span>
+        <span class="modal-tech-item">Tabler Icons</span>
+      </div>
+      <p style="margin-top: 12px;">Zero build step. Zero dependencies (except icons via CDN). Deploy anywhere — GitHub Pages, Vercel, or a static host.</p>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">about the creator</div>
+      <p>Built by <strong>Jeffrey Zhang</strong> as a portfolio piece alongside <a class="modal-link" href="https://github.com/jeffreyz/twosday" target="_blank">Twosday</a> and <a class="modal-link" href="https://github.com/jeffreyz/cinematch" target="_blank">Cinematch</a>.</p>
+      <p>Questions? Ideas? Find the code on <a class="modal-link" href="https://github.com/jeffreyz/moviegit" target="_blank">GitHub</a>.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const CFG = (() => {
+  // Username for Letterboxd RSS polling
+  const USERNAME = 'islaby';
+
+  // TMDB key — split + base64 encoded, not plaintext
+  const _p = ['YTE3ZGM1OTZkMzg1OGFkOQ==', 'N2Q5YjA2MTA3ODYyMDljOQ=='];
+  const TMDB_KEY = (() => {
+    try { return _p.map(atob).join(''); } catch { return ''; }
+  })();
+
+  return {
+    USERNAME,
+    TMDB_KEY,
+    TMDB_BASE:   'https://api.themoviedb.org/3',
+    TMDB_IMG_SM: 'https://image.tmdb.org/t/p/w154',
+    TMDB_IMG_MD: 'https://image.tmdb.org/t/p/w342',
+    RSS_URL:     `https://letterboxd.com/${USERNAME}/rss/`,
+    PROXY:       'https://api.allorigins.win/get?url=',
+    POLL_MS:     5 * 60 * 1000,
+  };
+})();
+
+/* ============================================================
+   STORE  — localStorage CRUD
+   ============================================================ */
+const STORE = (() => {
+  const K = {
+    history:  'mg_history',
+    tmdb:     'mg_tmdb_cache',
+    lastPoll: 'mg_last_poll',
+    csvDone:  'mg_csv_loaded',
+    theme:    'mg_theme',
+  };
+
+  const read  = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+  return {
+    getHistory:    ()    => read(K.history)  || [],
+    setHistory:    h     => write(K.history, h),
+    getTmdb:       ()    => read(K.tmdb)     || {},
+    setTmdbEntry:  (id, d) => { const c = read(K.tmdb) || {}; c[id] = d; write(K.tmdb, c); },
+    getLastPoll:   ()    => read(K.lastPoll),
+    setLastPoll:   ()    => write(K.lastPoll, new Date().toISOString()),
+    isCsvDone:     ()    => !!read(K.csvDone),
+    markCsvDone:   ()    => write(K.csvDone, true),
+    getTheme:      ()    => read(K.theme),
+    setTheme:      t     => write(K.theme, t),
+  };
+})();
+
+/* ============================================================
+   DATA  — parsing & merging
+   ============================================================ */
+const DATA = (() => {
+
+  // Parse Letterboxd CSV: Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date
+  function parseCSV(text) {
+    const lines = text.replace(/\r/g, '').trim().split('\n');
+    if (lines.length < 2) return [];
+    const header = splitRow(lines[0]).map(h => h.toLowerCase().trim());
+    const entries = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = splitRow(lines[i]);
+      if (cols.length < 3) continue;
+      const get = key => (cols[header.indexOf(key)] || '').trim().replace(/^"|"$/g, '');
+
+      const title = get('name');
+      const year  = parseInt(get('year')) || null;
+      const uri   = get('letterboxd uri');
+      const rRaw  = parseFloat(get('rating'));
+      const rating= isNaN(rRaw) ? null : rRaw;
+      const rewatch = get('rewatch').toLowerCase() === 'yes';
+      const tags  = get('tags').split(',').map(t => t.trim()).filter(Boolean);
+      const watched = get('watched date') || get('date') || '';
+
+      if (!title || !watched) continue;
+
+      const slug = uri.replace(/^https?:\/\/letterboxd\.com\/film\//, '').replace(/\/$/, '')
+                   || (title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + (year ? '-' + year : ''));
+
+      entries.push({
+        id: slug,
+        title,
+        year,
+        director:  null,
+        rating,
+        watchedDate: normalizeDate(watched),
+        rewatch,
+        tags,
+        letterboxdUrl: uri,
+        tmdbId:  null,
+        poster:  null,
+        genres:  [],
+        runtime: null,
+        country: null,
+        decade:  year ? Math.floor(year / 10) * 10 : null,
+        canon:   tags.some(t => t.toLowerCase() === 'canon'),
+        source:  'csv',
+      });
+    }
+
+    return entries;
+  }
+
+  // CSV row splitter: handles quoted fields with embedded commas
+  function splitRow(line) {
+    const cols = []; let cur = ''; let q = false;
+    for (const ch of line) {
+      if (ch === '"')      q = !q;
+      else if (ch === ',' && !q) { cols.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    cols.push(cur);
+    return cols;
+  }
+
+  // Merge two arrays deduped by id+watchedDate, sorted newest first
+  function merge(existing, incoming) {
+    const seen = new Set(existing.map(e => `${e.id}|${e.watchedDate}`));
+    const fresh = incoming.filter(e => !seen.has(`${e.id}|${e.watchedDate}`));
+    return [...existing, ...fresh].sort((a, b) => b.watchedDate.localeCompare(a.watchedDate));
+  }
+
+  // Normalize date strings → YYYY-MM-DD
+  function normalizeDate(s) {
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    try { return new Date(s).toISOString().slice(0, 10); } catch { return s; }
+  }
+
+  return { parseCSV, merge, normalizeDate };
+})();
+
+/* ============================================================
+   LETTERBOXD  — RSS poll
+   ============================================================ */
+const LB = (() => {
+  async function poll() {
+    const url = CFG.PROXY + encodeURIComponent(CFG.RSS_URL);
+    try {
+      const r    = await fetch(url);
+      const json = await r.json();
+      if (!json.contents) return [];
+
+      const doc   = new DOMParser().parseFromString(json.contents, 'text/xml');
+
+      // Try to extract avatar from channel <image><url> or <itunes:image href>
+      const chanImgUrl = doc.querySelector('channel > image > url')?.textContent?.trim()
+                      || doc.querySelector('channel image url')?.textContent?.trim();
+      const itunesImg  = doc.querySelector('image')?.getAttribute('href') || null;
+      const avatarUrl  = chanImgUrl || itunesImg;
+      if (avatarUrl) {
+        const el = document.getElementById('sidebar-avatar');
+        if (el && !el.querySelector('img')) {
+          el.innerHTML = `<img src="${avatarUrl}" alt="avatar" onerror="this.parentNode.innerHTML='JZ'">`;
+        }
+      }
+
+      const items = Array.from(doc.querySelectorAll('item'));
+
+      return items.map(item => {
+        const txt = tag => item.querySelector(tag)?.textContent?.trim() || '';
+
+        // Letterboxd RSS uses namespaced tags: <letterboxd:watchedDate> etc.
+        // DOMParser normalises these — try both with and without prefix
+        const watchedRaw = txt('watchedDate') || txt('letterboxd\\:watchedDate') ||
+                           (() => { try { return new Date(txt('pubDate')).toISOString().slice(0,10); } catch { return ''; } })();
+        const ratingRaw  = parseFloat(txt('memberRating') || txt('letterboxd\\:memberRating') || txt('rating'));
+        const rewatchRaw = txt('rewatch') || txt('letterboxd\\:rewatch');
+        const filmYear   = parseInt(txt('filmYear') || txt('letterboxd\\:filmYear')) || null;
+        const rawTitle   = txt('title').replace(/^[★½\d\s,]+[-–—]?\s*/, ''); // strip rating prefix
+        const link       = txt('link');
+
+        // Extract poster from description <img>
+        const desc    = txt('description');
+        const imgM    = desc.match(/<img[^>]+src="([^"]+)"/);
+        const poster  = imgM ? imgM[1] : null;
+
+        // Derive slug from Letterboxd link
+        const parts = link.replace(/\/$/, '').split('/').filter(Boolean);
+        const slug  = parts[parts.length - 1]
+                      || rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+        const r = isNaN(ratingRaw) ? null : ratingRaw;
+
+        return {
+          id: slug,
+          title: rawTitle,
+          year: filmYear,
+          director: null,
+          rating: r,
+          watchedDate: DATA.normalizeDate(watchedRaw),
+          rewatch: rewatchRaw.toLowerCase() === 'yes',
+          tags: [],
+          letterboxdUrl: link,
+          tmdbId: null,
+          poster,
+          genres: [],
+          runtime: null,
+          country: null,
+          decade: filmYear ? Math.floor(filmYear / 10) * 10 : null,
+          canon: false,
+          source: 'rss',
+        };
+      }).filter(e => e.title && e.watchedDate);
+
+    } catch (err) {
+      console.warn('[LB] poll failed', err);
+      return [];
+    }
+  }
+
+  return { poll };
+})();
+
+/* ============================================================
+   TMDB  — enrichment (lazy, rate-limited)
+   ============================================================ */
+const TMDB = (() => {
+  async function enrich(entry) {
+    if (!CFG.TMDB_KEY) return entry;
+
+    // Already enriched with full data?
+    const cache = STORE.getTmdb();
+    if (entry.tmdbId && cache[entry.tmdbId] && cache[entry.tmdbId].voteAvg != null) {
+      return { ...entry, ...cache[entry.tmdbId] };
+    }
+
+    try {
+      const q   = encodeURIComponent(entry.title);
+      const yr  = entry.year ? `&year=${entry.year}` : '';
+      const key = `api_key=${CFG.TMDB_KEY}`;
+      const s   = await fetch(`${CFG.TMDB_BASE}/search/movie?${key}&query=${q}${yr}`);
+      const sd  = await s.json();
+      const mov = sd.results?.[0];
+      if (!mov) return entry;
+
+      const d   = await fetch(`${CFG.TMDB_BASE}/movie/${mov.id}?${key}&append_to_response=credits`);
+      const dd  = await d.json();
+
+      const director   = dd.credits?.crew?.find(c => c.job === 'Director')?.name || null;
+      const genres     = (dd.genres || []).map(g => g.name);
+      const runtime    = dd.runtime  || null;
+      const country    = dd.production_countries?.[0]?.iso_3166_1 || null;
+      const poster     = dd.poster_path ? CFG.TMDB_IMG_SM + dd.poster_path : (entry.poster || null);
+      const voteAvg    = dd.vote_average   || null;
+      const voteCount  = dd.vote_count     || null;
+      const popularity = dd.popularity     || null;
+
+      const patch = { tmdbId: mov.id, director, genres, runtime, country, poster, voteAvg, voteCount, popularity };
+      STORE.setTmdbEntry(mov.id, patch);
+      return { ...entry, ...patch };
+
+    } catch (err) {
+      console.warn('[TMDB] enrich failed:', entry.title, err);
+      return entry;
+    }
+  }
+
+  async function enrichBatch(entries, onDone) {
+    if (!CFG.TMDB_KEY) return;
+    const todo = entries.filter(e => !e.tmdbId || !e.director || e.voteAvg == null).slice(0, 80); // cap per session
+    if (!todo.length) return;
+    const BATCH = 4;
+    let enriched = 0;
+    for (let i = 0; i < todo.length; i += BATCH) {
+      await Promise.all(
+        todo.slice(i, i + BATCH).map(async e => {
+          const result = await enrich(e);
+          const idx = entries.findIndex(x => x.id === e.id && x.watchedDate === e.watchedDate);
+          if (idx !== -1) entries[idx] = result;
+          enriched++;
+        })
+      );
+      await sleep(280);
+    }
+    STORE.setHistory(entries);
+    if (enriched > 0) {
+      UI.toast(`Enriched ${enriched} film${enriched > 1 ? 's' : ''} with TMDB data ✓`, 'success');
+    }
+    if (onDone) onDone(entries);
+  }
+
+  return { enrich, enrichBatch };
+})();
+
+/* ============================================================
+   RENDER  — overview
+   ============================================================ */
+const RENDER = (() => {
+
+  const $ = id => document.getElementById(id);
+
+  // ── Overview ──────────────────────────────────────────────
+  function overview(history) {
+    const now = new Date();
+
+    renderContrib(history, now);
+    renderMetrics(history, now);
+    renderHotTakes(history);
+    renderRatingDist(history);
+    renderFeed(history.slice(0, 7));
+    renderSidebar(history);
+
+    $('badge-diary').textContent = history.length || '—';
+    $('import-wrap').style.display = (!history.length && !STORE.isCsvDone()) ? '' : 'none';
+  }
+
+  // ── Contribution graph ────────────────────────────────────
+  function renderContrib(history, now) {
+    const grid     = $('cgrid');
+    const monthRow = $('contrib-months');
+    grid.innerHTML = monthRow.innerHTML = '';
+
+    // Build date → count map
+    const countMap = {};
+    history.forEach(e => {
+      if (e.watchedDate) countMap[e.watchedDate] = (countMap[e.watchedDate] || 0) + 1;
+    });
+
+    // Anchor to the Sunday of the current week
+    const base = new Date(now);
+    base.setDate(base.getDate() - base.getDay()); // rewind to Sunday
+    const WEEKS = 53;
+    const start = new Date(base);
+    start.setDate(start.getDate() - (WEEKS - 1) * 7); // go 52 weeks back
+
+    const oneYearAgo = new Date(now);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    // Month label positions: record week-index where a new month starts
+    const monthAt = {}; // weekIdx → label
+    let yearCount  = 0;
+
+    for (let w = 0; w < WEEKS; w++) {
+      for (let d = 0; d < 7; d++) {
+        const cell = new Date(start);
+        cell.setDate(cell.getDate() + w * 7 + d);
+
+        // Track month label at week start
+        if (d === 0 && (w === 0 || cell.getDate() <= 7)) {
+          monthAt[w] = cell.toLocaleString('default', { month: 'short' });
+        }
+
+        const iso   = cell.toISOString().slice(0, 10);
+        const count = countMap[iso] || 0;
+        const level = toLevel(count);
+        const future= cell > now;
+
+        if (cell > oneYearAgo && cell <= now) yearCount += count;
+
+        const el = document.createElement('div');
+        el.className = 'cg-cell c' + (future ? 0 : level);
+        if (future) el.style.opacity = '.18';
+        const label = count === 0
+          ? `No films · ${fmtDate(cell)}`
+          : `${count} film${count > 1 ? 's' : ''} · ${fmtDate(cell)}`;
+        el.setAttribute('data-tip', label);
+        grid.appendChild(el);
+      }
+    }
+
+    // Render month labels — one span per week, text only on new-month weeks
+    for (let w = 0; w < WEEKS; w++) {
+      const span = document.createElement('span');
+      span.className = 'month-lbl';
+      span.style.flex = '1';
+      span.textContent = monthAt[w] || '';
+      monthRow.appendChild(span);
+    }
+
+    $('contrib-count').textContent   = yearCount;
+    $('streak-current').textContent  = calcStreak(history, now);
+    $('streak-longest').textContent  = calcLongestStreak(history) + 'd';
+    $('streak-best-month').textContent = calcBestMonth(history);
+  }
+
+  function toLevel(n) {
+    if (n === 0) return 0;
+    if (n === 1) return 1;
+    if (n === 2) return 2;
+    if (n <= 4)  return 3;
+    return 4;
+  }
+
+  function fmtDate(d) {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // ── Metrics ───────────────────────────────────────────────
+  function renderMetrics(history, now) {
+    const rated  = history.filter(e => e.rating !== null && e.rating !== undefined);
+    const avgRat = rated.length
+      ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1)
+      : '—';
+
+    const totalMin = history.reduce((s, e) => s + (e.runtime || 0), 0);
+    const timeStr  = totalMin >= 60 ? Math.round(totalMin / 60) + 'h' : (totalMin || '—');
+
+    const monthCount = history.filter(e => {
+      if (!e.watchedDate) return false;
+      const d = new Date(e.watchedDate);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+
+    const rewatchCount = history.filter(e => e.rewatch).length;
+
+    $('m-rating').textContent   = avgRat;
+    $('m-time').textContent     = timeStr;
+    $('m-month').textContent    = monthCount;
+    $('m-rewatches').textContent= rewatchCount;
+  }
+
+  // ── Rating distribution ───────────────────────────────────
+  function renderRatingDist(history) {
+    const rated = history.filter(e => e.rating !== null && e.rating !== undefined);
+    $('rated-count').textContent = rated.length + ' rated';
+
+    // Round each rating to nearest whole star for bucketing
+    const bins = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    rated.forEach(e => {
+      const b = Math.min(5, Math.max(1, Math.round(e.rating)));
+      bins[b]++;
+    });
+
+    const max = Math.max(...Object.values(bins), 1);
+    [5, 4, 3, 2, 1].forEach(s => {
+      const n = bins[s] || 0;
+      $('rb' + s).style.width = (n / max * 100).toFixed(1) + '%';
+      $('rc' + s).textContent = n;
+    });
+  }
+
+  // ── Activity feed ─────────────────────────────────────────
+  function renderFeed(entries) {
+    const feed = $('activity-feed');
+    if (!entries.length) {
+      feed.innerHTML = '<div style="padding:32px 20px;text-align:center;color:var(--text-tertiary);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:10px;"><img src="favicon-tv-b.svg" style="width:40px;height:40px;opacity:0.5;"><span>No activity yet — import a CSV or check back after your next watch.</span></div>';
+      return;
+    }
+
+    feed.innerHTML = entries.map(e => {
+      const stars = e.rating ? `<span class="af-stars">${toStars(e.rating)}</span>` : '';
+      const dirYear = [e.director, e.year].filter(Boolean).join(' · ');
+      const chipCls = e.canon ? 'chip-canon' : e.rewatch ? 'chip-rewatch' : 'chip-log';
+      const chipIco = e.canon ? 'ti-heart' : e.rewatch ? 'ti-refresh' : 'ti-plus';
+      const chipTxt = e.canon ? 'canon' : e.rewatch ? 'rewatch' : 'first watch';
+      const imgTag  = e.poster
+        ? `<img src="${esc(e.poster)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        : `<i class="ti ti-movie"></i>`;
+
+      return `
+        <div class="af-item">
+          <div class="af-poster">${imgTag}</div>
+          <div class="af-content">
+            <div class="af-title">${esc(e.title)}</div>
+            <div class="af-meta">${esc(dirYear)} ${stars}</div>
+            <div class="af-chip"><i class="ti ${chipIco} ${chipCls}"></i>${chipTxt}</div>
+          </div>
+          <div class="af-time">${relTime(e.watchedDate)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── Sidebar ───────────────────────────────────────────────
+  function renderSidebar(history) {
+    $('stat-logged').textContent    = history.length || '—';
+    $('stat-rewatches').textContent = history.filter(e => e.rewatch).length || '—';
+
+    const totalMin = history.reduce((s, e) => s + (e.runtime || 0), 0);
+    $('stat-runtime').textContent   = totalMin >= 60 ? Math.round(totalMin / 60) + 'h' : '—';
+
+    // Genres
+    const gc = {};
+    const gr = {}; // genre rating sum
+    history.forEach(e => {
+      (e.genres || []).forEach(g => {
+        gc[g] = (gc[g] || 0) + 1;
+        gr[g] = (gr[g] || 0) + (e.rating || 0);
+      });
+    });
+    const top  = Object.entries(gc).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const maxG = top[0]?.[1] || 1;
+    const totG = top.reduce((s, [, n]) => s + n, 0) || 1;
+    const COLORS = ['#3fb950', '#7F77DD', '#EF9F27', '#D85A30', '#1D9E75'];
+
+    $('sidebar-genres').innerHTML = top.length
+      ? top.map(([g, n], i) => `
+          <div class="genre-row">
+            <div class="genre-dot" style="background:${COLORS[i]}"></div>
+            <span class="genre-name">${esc(g)}</span>
+            <div class="genre-track">
+              <div class="genre-fill" style="width:${(n/maxG*100).toFixed(0)}%;background:${COLORS[i]}"></div>
+            </div>
+            <span class="genre-pct">${Math.round(n/totG*100)}%</span>
+          </div>`).join('')
+      : '<div style="font-size:11px;color:var(--text-tertiary)">No genre data yet — TMDB enrichment populates this.</div>';
+
+    // Genre sparklines (avg rating)
+    const top3 = top.slice(0, 3);
+    const sparklineEl = $('sidebar-genre-sparklines');
+    if (top3.length > 0) {
+      sparklineEl.style.display = '';
+      const maxRating = 5;
+      sparklineEl.innerHTML = top3.map(([g, n]) => {
+        const avgRating = gr[g] / n;
+        const pct = (avgRating / maxRating) * 100;
+        return `<div class="genre-spark">
+          <div class="genre-spark-name">${esc(g)}</div>
+          <div class="genre-spark-bars">
+            <div class="genre-spark-bar" style="width:${pct}%;" title="★${avgRating.toFixed(1)}"></div>
+          </div>
+          <span style="flex: 0 0 30px; text-align: right;">★${avgRating.toFixed(1)}</span>
+        </div>`;
+      }).join('');
+    } else {
+      sparklineEl.style.display = 'none';
+    }
+
+    // Member since — earliest watch date
+    const earliest = [...history].sort((a, b) => a.watchedDate.localeCompare(b.watchedDate))[0];
+    if (earliest?.watchedDate) {
+      const d = new Date(earliest.watchedDate);
+      $('member-since').textContent = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+    }
+  }
+
+  // ── Hottest takes ─────────────────────────────────────────
+  function renderHotTakes(history) {
+    // Find entries with both user rating and TMDB vote average
+    const divergences = history
+      .filter(e => e.rating !== null && e.rating !== undefined && e.voteAvg !== null && e.voteAvg !== undefined)
+      .map(e => ({
+        title: e.title,
+        year: e.year,
+        userRating: e.rating,
+        tmdbRating: e.voteAvg / 2, // Scale 0-10 to 0-5
+        delta: e.rating - (e.voteAvg / 2)
+      }))
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 3);
+
+    const listEl = $('hottest-takes-list');
+    if (divergences.length === 0) {
+      listEl.innerHTML = '<div style="font-size:11px;color:var(--text-tertiary)">No ratings yet — add some films and their divergences will appear here.</div>';
+      return;
+    }
+
+    listEl.innerHTML = divergences.map(d => {
+      const sign = d.delta > 0 ? '+' : '';
+      const color = d.delta > 0 ? '#3fb950' : '#f85149';
+      return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; background: var(--bg-secondary); border-radius: 4px; font-size: 12px;">
+        <div style="flex: 1;">
+          <div style="color: var(--text-primary); font-weight: 500;">${esc(d.title)}</div>
+          <div style="color: var(--text-tertiary); font-size: 11px;">${d.year} · TMDB ★${d.tmdbRating.toFixed(1)}</div>
+        </div>
+        <div style="flex: 0 0 auto; text-align: right; color: ${color}; font-weight: 600;">
+          <div style="font-size: 13px;">${sign}${d.delta.toFixed(1)}★</div>
+          <div style="color: var(--text-secondary); font-size: 11px;">you: ★${d.userRating.toFixed(1)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Streak helpers ────────────────────────────────────────
+  function calcStreak(history, now) {
+    const dates = new Set(history.map(e => e.watchedDate).filter(Boolean));
+    let streak = 0;
+    const d = new Date(now);
+    // Allow yesterday too (might not have watched yet today)
+    const today     = now.toISOString().slice(0, 10);
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().slice(0, 10);
+    if (!dates.has(today) && !dates.has(yStr)) return 0;
+
+    // Walk backwards from today
+    const cur = new Date(dates.has(today) ? today : yStr);
+    while (dates.has(cur.toISOString().slice(0, 10))) {
+      streak++;
+      cur.setDate(cur.getDate() - 1);
+      if (streak > 3650) break;
+    }
+    return streak;
+  }
+
+  function calcLongestStreak(history) {
+    const dates = [...new Set(history.map(e => e.watchedDate).filter(Boolean))].sort();
+    let best = 0, cur = 0, prev = null;
+    dates.forEach(d => {
+      const diff = prev ? (new Date(d) - new Date(prev)) / 86400000 : 999;
+      cur = diff === 1 ? cur + 1 : 1;
+      if (cur > best) best = cur;
+      prev = d;
+    });
+    return best;
+  }
+
+  function calcBestMonth(history) {
+    const mc = {};
+    history.forEach(e => {
+      if (!e.watchedDate) return;
+      const k = e.watchedDate.slice(0, 7);
+      mc[k] = (mc[k] || 0) + 1;
+    });
+    const best = Object.entries(mc).sort((a, b) => b[1] - a[1])[0];
+    if (!best) return '—';
+    const [yr, mo] = best[0].split('-');
+    return new Date(+yr, +mo - 1).toLocaleString('default', { month: 'short' }) + ' ' + yr;
+  }
+
+  // ── Utilities ─────────────────────────────────────────────
+  function toStars(r) {
+    return '★'.repeat(Math.floor(r)) + (r % 1 >= 0.5 ? '½' : '');
+  }
+
+  function relTime(iso) {
+    if (!iso) return '';
+    const days = Math.floor((Date.now() - new Date(iso)) / 86400000);
+    if (days === 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days <  7)  return `${days}d ago`;
+    if (days < 30)  return `${Math.floor(days / 7)}w ago`;
+    if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+    return `${Math.floor(days / 365)}y ago`;
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Diary ──────────────────────────────────────────────────
+  const DIARY_PAGE_SIZE = 25;
+
+  function diary(history) {
+    // Populate year filter
+    const yearSel = $('diary-year');
+    const years = [...new Set(history.map(e => e.year).filter(Boolean))].sort((a,b) => b-a);
+    if (yearSel.options.length <= 1) {
+      years.forEach(y => { const o = document.createElement('option'); o.value = y; o.textContent = y; yearSel.appendChild(o); });
+    }
+
+    // Populate genre filter
+    const genreSel = $('diary-genre');
+    if (genreSel.options.length <= 1) {
+      const gc = {};
+      history.forEach(e => (e.genres||[]).forEach(g => { gc[g] = (gc[g]||0)+1; }));
+      Object.entries(gc).sort((a,b)=>b[1]-a[1]).forEach(([g]) => {
+        const o = document.createElement('option'); o.value = g; o.textContent = g; genreSel.appendChild(o);
+      });
+    }
+
+    renderDiaryPage(history, 0);
+    initDiaryLogToggle(history);
+  }
+
+  function renderDiaryPage(history, page) {
+    const query  = ($('diary-search').value || '').toLowerCase().trim();
+    const year   = $('diary-year').value;
+    const genre  = $('diary-genre').value;
+    const rating = $('diary-rating').value;
+    const canon  = $('diary-toggle-canon').dataset.active === 'true';
+
+    let filtered = history.filter(e => {
+      if (query  && !e.title.toLowerCase().includes(query)) return false;
+      if (year   && String(e.year) !== year) return false;
+      if (genre  && !(e.genres||[]).includes(genre)) return false;
+      if (rating && (e.rating === null || e.rating < parseFloat(rating))) return false;
+      if (canon  && !e.canon) return false;
+      return true;
+    });
+
+    $('diary-count').textContent = `${filtered.length} film${filtered.length !== 1 ? 's' : ''}`;
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / DIARY_PAGE_SIZE));
+    page = Math.min(page, totalPages - 1);
+    const slice = filtered.slice(page * DIARY_PAGE_SIZE, (page + 1) * DIARY_PAGE_SIZE);
+
+    const list = $('diary-list');
+    list.innerHTML = slice.length
+      ? slice.map(e => diaryRow(e)).join('')
+      : '<div style="padding:32px;text-align:center;color:var(--text-tertiary);font-size:12px">No films match your filters.</div>';
+
+    // Pagination
+    const prev = $('diary-prev');
+    const next = $('diary-next');
+    prev.disabled = page === 0;
+    next.disabled = page >= totalPages - 1;
+    $('diary-page-info').textContent = totalPages > 1 ? `page ${page+1} of ${totalPages}` : `${filtered.length} films`;
+
+    prev.onclick = () => renderDiaryPage(history, page - 1);
+    next.onclick = () => renderDiaryPage(history, page + 1);
+
+    // Store ref for filter changes
+    $('diary-list-panel')._history = history;
+    $('diary-list-panel')._page    = 0;
+  }
+
+  function diaryRow(e) {
+    const stars   = e.rating ? `<span class="diary-stars">${toStars(e.rating)}</span>` : '';
+    const dirYear = [e.director, e.year].filter(Boolean).join(' · ');
+    const dateFmt = e.watchedDate ? new Date(e.watchedDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+    const poster  = e.poster
+      ? `<img src="${esc(e.poster)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<i class=\\'ti ti-movie\\'></i>'">`
+      : `<i class="ti ti-movie"></i>`;
+
+    const badges = [
+      e.canon   ? `<span class="badge badge-canon">canon</span>` : '',
+      e.rewatch ? `<span class="badge badge-rewatch">rewatch</span>` : '',
+      ...(e.tags||[]).filter(t=>t!=='liked'&&t!=='canon').slice(0,2).map(t=>`<span class="badge badge-tag">${esc(t)}</span>`),
+    ].filter(Boolean).join('');
+
+    return `
+      <div class="diary-row">
+        <div class="diary-poster">${poster}</div>
+        <div class="diary-info">
+          <div class="diary-title">${esc(e.title)}</div>
+          <div class="diary-meta">${esc(dirYear)} ${stars}</div>
+          ${badges ? `<div class="diary-badges">${badges}</div>` : ''}
+        </div>
+        <div class="diary-date">${dateFmt}</div>
+      </div>
+    `;
+  }
+
+  // ── mg log terminal view ──────────────────────────────────────
+  function mgHash(title, year) {
+    // Short deterministic 7-char hex from title+year string
+    let h = 0x811c9dc5 >>> 0;
+    const s = String(title || '') + String(year || '');
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0').slice(0, 7);
+  }
+
+  function renderMgLog(history) {
+    // Apply same filters as card view
+    const query  = ($('diary-search').value || '').toLowerCase().trim();
+    const year   = $('diary-year').value;
+    const genre  = $('diary-genre').value;
+    const rating = $('diary-rating').value;
+    const canon  = $('diary-toggle-canon').dataset.active === 'true';
+
+    let filtered = history.filter(e => {
+      if (query  && !e.title.toLowerCase().includes(query)) return false;
+      if (year   && String(e.year) !== year) return false;
+      if (genre  && !(e.genres||[]).includes(genre)) return false;
+      if (rating && (e.rating === null || e.rating < parseFloat(rating))) return false;
+      if (canon  && !e.canon) return false;
+      return true;
+    });
+
+    const out = $('diary-log-output');
+    if (!filtered.length) {
+      out.innerHTML = `<div class="log-prompt">$ mg log</div><div style="color:var(--text-tertiary);font-size:12px">No commits match your filters.</div>`;
+      return;
+    }
+
+    const lines = filtered.map(e => {
+      const hash  = mgHash(e.title, e.year);
+      const date  = e.watchedDate || '????-??-??';
+      const stars = e.rating ? toStars(e.rating) : '      ';
+      const title = `${e.title}${e.year ? ` (${e.year})` : ''}`;
+      const dir   = e.director ? ` — ${e.director}` : '';
+      const rw    = e.rewatch  ? ` <span class="log-badge">↩ rewatch</span>` : '';
+      const cn    = e.canon    ? ` <span class="log-badge" style="color:var(--accent-orange)">★ canon</span>` : '';
+
+      return `<div class="mg-log-line"><span class="log-hash">${hash}</span>  <span class="log-date">${date}</span>  <span class="log-title">${esc(title)}</span>  <span class="log-stars">${stars}</span><span class="log-dir">${esc(dir)}</span>${rw}${cn}</div>`;
+    }).join('');
+
+    out.innerHTML = `<div class="log-prompt">$ mg log  <span style="color:var(--text-tertiary)">(${filtered.length} commits)</span></div>${lines}`;
+  }
+
+  let _logToggleInit = false;
+  function initDiaryLogToggle(history) {
+    const btnGrid   = $('dlt-grid');
+    const btnLog    = $('dlt-log');
+    const panelCard = $('diary-list-panel');
+    const panelLog  = $('diary-log-panel');
+
+    function showGrid() {
+      btnGrid.classList.add('active');
+      btnLog.classList.remove('active');
+      panelCard.style.display = '';
+      panelLog.style.display  = 'none';
+    }
+    function showLog() {
+      btnLog.classList.add('active');
+      btnGrid.classList.remove('active');
+      panelCard.style.display = 'none';
+      panelLog.style.display  = '';
+      renderMgLog(history);
+    }
+
+    // Wire toggle buttons (safe to reassign)
+    btnGrid.onclick = showGrid;
+    btnLog.onclick  = showLog;
+
+    // Bind filter listeners only once
+    if (!_logToggleInit) {
+      _logToggleInit = true;
+      ['diary-search','diary-year','diary-genre','diary-rating'].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('input', () => { if (btnLog.classList.contains('active')) renderMgLog(history); });
+      });
+      const canonBtn = $('diary-toggle-canon');
+      if (canonBtn) {
+        canonBtn.addEventListener('click', () => {
+          setTimeout(() => { if (btnLog.classList.contains('active')) renderMgLog(history); }, 10);
+        });
+      }
+    }
+  }
+
+  // ── Director filmography completion ───────────────────────────
+  const DIR_FILMOGRAPHY_KEY = 'mg_dir_filmography';
+
+  function getDirFilmographyCache() {
+    try { return JSON.parse(localStorage.getItem(DIR_FILMOGRAPHY_KEY) || '{}'); } catch { return {}; }
+  }
+  function saveDirFilmographyCache(cache) {
+    try { localStorage.setItem(DIR_FILMOGRAPHY_KEY, JSON.stringify(cache)); } catch {}
+  }
+
+  async function fetchDirectorFilmcount(directorName) {
+    if (!CFG.TMDB_KEY) return null;
+    try {
+      // Step 1: search for the person
+      const searchUrl = `https://api.themoviedb.org/3/search/person?api_key=${CFG.TMDB_KEY}&query=${encodeURIComponent(directorName)}&language=en-US&page=1`;
+      const sr = await fetch(searchUrl);
+      const sj = await sr.json();
+      const person = sj.results?.find(p => p.known_for_department === 'Directing') || sj.results?.[0];
+      if (!person) return null;
+
+      // Step 2: fetch their movie credits as crew
+      const credUrl = `https://api.themoviedb.org/3/person/${person.id}/movie_credits?api_key=${CFG.TMDB_KEY}&language=en-US`;
+      const cr = await fetch(credUrl);
+      const cj = await cr.json();
+      const directedFilms = (cj.crew || []).filter(c => c.job === 'Director');
+      return { tmdbId: person.id, total: directedFilms.length };
+    } catch { return null; }
+  }
+
+  function renderDirectorCompletion(history) {
+    // Build watched count per director
+    const dc = {};
+    history.forEach(e => {
+      if (!e.director) return;
+      dc[e.director] = (dc[e.director] || 0) + 1;
+    });
+    const sorted = Object.entries(dc).sort((a,b) => b[1]-a[1]).slice(0, 12);
+
+    if (!sorted.length) {
+      $('stats-dircomp').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">TMDB enrichment required for director data.</div>';
+      return;
+    }
+
+    const cache = getDirFilmographyCache();
+
+    function renderRows() {
+      const c2 = getDirFilmographyCache();
+      $('stats-dircomp').innerHTML = sorted.map(([dir, watched]) => {
+        const cached = c2[dir];
+        const total   = cached?.total || null;
+        const pct     = total ? Math.min(100, Math.round(watched / total * 100)) : null;
+        const pctStr  = pct !== null ? `${pct}%` : '…';
+        const countStr = total ? `${watched}/${total}` : `${watched} seen`;
+        const fillW   = pct !== null ? `${pct}%` : '0%';
+        const fillColor = pct === null ? 'var(--bg-overlay)'
+                        : pct >= 60   ? 'var(--accent-green)'
+                        : pct >= 30   ? 'var(--accent-blue)'
+                        : 'var(--accent-orange)';
+        return `<div class="dir-comp-row">
+          <span class="dir-comp-name" title="${esc(dir)}">${esc(dir)}</span>
+          <div class="dir-comp-track"><div class="dir-comp-fill" style="width:${fillW};background:${fillColor}"></div></div>
+          <span class="dir-comp-pct">${pctStr}</span>
+          <span class="dir-comp-count">${countStr}</span>
+        </div>`;
+      }).join('');
+    }
+
+    renderRows();
+
+    // Async: fetch missing directors (throttled, 1 per 350ms)
+    const missing = sorted.filter(([dir]) => !cache[dir]).map(([dir]) => dir);
+    if (missing.length && CFG.TMDB_KEY) {
+      (async () => {
+        const c = getDirFilmographyCache();
+        for (const dir of missing) {
+          if (c[dir]) continue;
+          const result = await fetchDirectorFilmcount(dir);
+          if (result) { c[dir] = result; saveDirFilmographyCache(c); renderRows(); }
+          await new Promise(r => setTimeout(r, 350));
+        }
+      })();
+    }
+  }
+
+  // ── Taste drift ───────────────────────────────────────────────
+  function renderTasteDrift(history) {
+    const el = $('stats-drift');
+    const sub = $('stats-drift-sub');
+
+    // Get available years
+    const years = [...new Set(history.map(e => e.watchedDate?.slice(0,4)).filter(Boolean))].sort().reverse();
+    if (years.length < 2) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">Need at least 2 years of data for drift analysis.</div>';
+      return;
+    }
+
+    const currentYear = years[0];
+    const prevYear    = years[1];
+    sub.textContent   = `${prevYear} → ${currentYear}`;
+
+    function computeYearStats(yr) {
+      const entries = history.filter(e => e.watchedDate?.startsWith(yr));
+      const rated   = entries.filter(e => e.rating != null);
+      const avgRat  = rated.length ? rated.reduce((s,e)=>s+e.rating,0)/rated.length : null;
+
+      // Genre counts
+      const gc = {};
+      entries.forEach(e => (e.genres||[]).forEach(g => { gc[g]=(gc[g]||0)+1; }));
+      const topGenre = Object.entries(gc).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+
+      // Unique directors
+      const dirs = new Set(entries.map(e=>e.director).filter(Boolean));
+
+      return { count: entries.length, avgRat, topGenre, dirs, gc };
+    }
+
+    const curr = computeYearStats(currentYear);
+    const prev = computeYearStats(prevYear);
+
+    // Delta helpers
+    function delta(a, b) {
+      if (a == null || b == null) return null;
+      return a - b;
+    }
+    function deltaHtml(d, suffix='', decimals=1) {
+      if (d == null) return '<span class="drift-delta flat">—</span>';
+      const sign = d > 0 ? '+' : '';
+      const cls  = d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'flat';
+      const ico  = d > 0.05 ? '▲' : d < -0.05 ? '▼' : '→';
+      return `<span class="drift-delta ${cls}">${ico} ${sign}${Math.abs(d).toFixed(decimals)}${suffix}</span>`;
+    }
+
+    const ratDelta   = delta(curr.avgRat, prev.avgRat);
+    const countDelta = delta(curr.count, prev.count);
+
+    // New directors discovered this year (not in prev year)
+    const prevDirSet = new Set(history.filter(e=>e.watchedDate?.startsWith(prevYear)).map(e=>e.director).filter(Boolean));
+    const newDirs    = [...curr.dirs].filter(d => !prevDirSet.has(d)).length;
+
+    // Genre shifts: top 5 genres, compare rank
+    const allGenres = [...new Set([...Object.keys(curr.gc), ...Object.keys(prev.gc)])];
+    const genreShifts = allGenres.map(g => ({
+      name: g,
+      curr: curr.gc[g] || 0,
+      prev: prev.gc[g] || 0,
+    })).sort((a,b) => b.curr - a.curr).slice(0, 5);
+
+    el.innerHTML = `
+      <div class="drift-header">
+        <span style="color:var(--text-secondary)">${prevYear}</span>
+        <i class="ti ti-arrow-right" style="font-size:12px"></i>
+        <span style="color:var(--text-primary);font-weight:600">${currentYear}</span>
+        <span style="margin-left:auto;color:var(--text-tertiary)">comparing annual watch patterns</span>
+      </div>
+      <div class="drift-grid">
+        <div class="drift-card">
+          <div class="drift-card-label">films watched</div>
+          <div class="drift-val">${curr.count}</div>
+          ${deltaHtml(countDelta, ' films', 0)}
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">vs ${prev.count} in ${prevYear}</div>
+        </div>
+        <div class="drift-card">
+          <div class="drift-card-label">avg rating</div>
+          <div class="drift-val">${curr.avgRat ? '★'+curr.avgRat.toFixed(2) : '—'}</div>
+          ${deltaHtml(ratDelta, '★')}
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">vs ★${prev.avgRat?.toFixed(2)||'—'} in ${prevYear}</div>
+        </div>
+        <div class="drift-card">
+          <div class="drift-card-label">top genre</div>
+          <div class="drift-val" style="font-size:14px">${esc(curr.topGenre)}</div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">${curr.topGenre === prev.topGenre ? 'same as last year' : `was ${esc(prev.topGenre)} in ${prevYear}`}</div>
+        </div>
+        <div class="drift-card">
+          <div class="drift-card-label">new directors</div>
+          <div class="drift-val">${newDirs}</div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">first-time watches in ${currentYear}</div>
+        </div>
+      </div>
+      <div class="drift-genres">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-tertiary);margin-bottom:6px">genre breakdown — ${prevYear} → ${currentYear}</div>
+        ${genreShifts.map(g => {
+          const d = g.curr - g.prev;
+          const arrow = d > 0 ? '<span style="color:var(--trend-up)">▲</span>' : d < 0 ? '<span style="color:var(--trend-dn)">▼</span>' : '<span style="color:var(--text-tertiary)">→</span>';
+          return `<div class="drift-genre-row">
+            <span class="drift-genre-name">${esc(g.name)}</span>
+            <span class="drift-genre-prev">${g.prev}</span>
+            <span class="drift-genre-arrow">${arrow}</span>
+            <span class="drift-genre-curr">${g.curr}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  // ── Stats ───────────────────────────────────────────────────
+  function stats(history) {
+    renderDecades(history);
+    renderDirectors(history);
+    renderRatingTimeline(history);
+    renderGenreFull(history);
+    renderNumbers(history);
+    renderRewatches(history);
+    renderComposers(history);
+    renderStreakBreakdown(history);
+    renderBlindSpots(history);
+    renderTasteDNA(history);
+    renderTemporal(history);
+    renderHottestTakes(history);
+    renderDiscoveries(history);
+    renderDirectorCompletion(history);
+    renderTasteDrift(history);
+  }
+
+  function renderDecades(history) {
+    const dc = {};
+    history.forEach(e => { if (e.decade) dc[e.decade] = (dc[e.decade]||0)+1; });
+    const rows = Object.entries(dc).sort((a,b)=>+a[0]-+b[0]);
+    const max  = Math.max(...rows.map(r=>r[1]),1);
+    const COLORS = ['#39d353','#26a641','#006d32','#0e4429','#3fb950','#58a6ff'];
+    $('stats-decades').innerHTML = rows.map(([dec,n],i) => `
+      <div class="stat-bar-row">
+        <span class="stat-bar-lbl narrow">${dec}s</span>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill" style="width:${(n/max*100).toFixed(1)}%;background:${COLORS[i%COLORS.length]}"></div>
+        </div>
+        <span class="stat-bar-val">${n}</span>
+      </div>`).join('');
+  }
+
+  function renderDirectors(history) {
+    const dc = {}, dr = {};
+    history.forEach(e => {
+      if (!e.director) return;
+      dc[e.director] = (dc[e.director]||0)+1;
+      if (!dr[e.director]) dr[e.director] = [];
+      if (e.rating) dr[e.director].push(e.rating);
+    });
+    const top = Object.entries(dc).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const max = top[0]?.[1]||1;
+    $('stats-directors').innerHTML = top.map(([d,n]) => {
+      const avg = dr[d]?.length ? (dr[d].reduce((s,r)=>s+r,0)/dr[d].length).toFixed(1) : '—';
+      return `
+        <div class="stat-bar-row">
+          <span class="stat-bar-lbl">${esc(d)}</span>
+          <div class="stat-bar-track">
+            <div class="stat-bar-fill" style="width:${(n/max*100).toFixed(1)}%;background:var(--accent-blue)"></div>
+          </div>
+          <span class="stat-bar-val">${n}</span>
+          <span class="stat-bar-avg">★${avg}</span>
+        </div>`;
+    }).join('') || '<div style="font-size:12px;color:var(--text-tertiary)">TMDB enrichment required for director data.</div>';
+  }
+
+  function renderRatingTimeline(history) {
+    const months = {};
+    history.forEach(e => {
+      if (!e.watchedDate || e.rating === null) return;
+      const k = e.watchedDate.slice(0,7);
+      if (!months[k]) months[k] = [];
+      months[k].push(e.rating);
+    });
+
+    const sorted = Object.entries(months).sort((a,b)=>a[0].localeCompare(b[0]));
+    if (!sorted.length) { $('stats-rating-time').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">No data yet.</div>'; return; }
+
+    const avgs  = sorted.map(([k,rs]) => ({ k, avg: rs.reduce((s,r)=>s+r,0)/rs.length, n: rs.length }));
+    const maxA  = Math.max(...avgs.map(a=>a.avg));
+    const overallAvg = (history.filter(e=>e.rating!=null).reduce((s,e)=>s+e.rating,0) / (history.filter(e=>e.rating!=null).length||1)).toFixed(2);
+    $('stats-rating-sub').textContent = `overall avg: ★${overallAvg}`;
+
+    $('stats-rating-time').innerHTML = `
+      <div class="rating-timeline">
+        ${avgs.map(({k,avg,n}) => {
+          const hpct = (avg/5*100).toFixed(0);
+          const lbl  = k.slice(2);
+          return `<div class="rt-col" title="${k}: ★${avg.toFixed(1)} (${n} films)">
+            <div class="rt-bar-wrap"><div class="rt-bar" style="height:${hpct}%"></div></div>
+            <span class="rt-lbl">${lbl}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function renderGenreFull(history) {
+    const gc = {};
+    history.forEach(e => (e.genres||[]).forEach(g => { gc[g]=(gc[g]||0)+1; }));
+    const rows = Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    const max  = rows[0]?.[1]||1;
+    const COLORS = ['#3fb950','#58a6ff','#EF9F27','#D85A30','#bc8cff','#1D9E75','#7F77DD','#e3b341','#f85149','#39d353'];
+    $('stats-genres').innerHTML = rows.length
+      ? rows.map(([g,n],i)=>`
+          <div class="stat-bar-row">
+            <span class="stat-bar-lbl">${esc(g)}</span>
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill" style="width:${(n/max*100).toFixed(1)}%;background:${COLORS[i%COLORS.length]}"></div>
+            </div>
+            <span class="stat-bar-val">${n}</span>
+          </div>`).join('')
+      : '<div style="font-size:12px;color:var(--text-tertiary)">TMDB enrichment required for genre data.</div>';
+  }
+
+  function renderNumbers(history) {
+    const rated     = history.filter(e=>e.rating!=null);
+    const avgRat    = rated.length ? (rated.reduce((s,e)=>s+e.rating,0)/rated.length).toFixed(2) : '—';
+    const fiveStar  = history.filter(e=>e.rating===5).length;
+    const totalMin  = history.reduce((s,e)=>s+(e.runtime||0),0);
+    const runtimeH  = totalMin ? Math.round(totalMin/60)+'h' : '—';
+    const canons    = history.filter(e=>e.canon).length;
+    const longestS  = calcLongestStreak(history);
+    const decades   = new Set(history.map(e=>e.decade).filter(Boolean)).size;
+    const directors = new Set(history.map(e=>e.director).filter(Boolean)).size;
+
+    $('stats-numbers').innerHTML = `
+      <div class="numbers-grid">
+        <div class="num-card"><div class="num-val">${history.length}</div><div class="num-lbl">Films watched</div></div>
+        <div class="num-card"><div class="num-val">${avgRat}</div><div class="num-lbl">Avg rating</div></div>
+        <div class="num-card"><div class="num-val">${fiveStar}</div><div class="num-lbl">★5 films</div></div>
+        <div class="num-card"><div class="num-val">${runtimeH}</div><div class="num-lbl">Watch time</div></div>
+        <div class="num-card"><div class="num-val">${canons}</div><div class="num-lbl">Canon films</div></div>
+        <div class="num-card"><div class="num-val">${longestS}d</div><div class="num-lbl">Longest streak</div></div>
+        <div class="num-card"><div class="num-val">${decades}</div><div class="num-lbl">Decades covered</div></div>
+        <div class="num-card"><div class="num-val">${directors||'—'}</div><div class="num-lbl">Directors</div></div>
+      </div>`;
+  }
+
+  // ── Rewatch analysis ──────────────────────────────────────────
+  function renderRewatches(history) {
+    const rewatches = history.filter(e => e.rewatch);
+    const rCount = rewatches.length;
+    const originals = history.filter(e => !e.rewatch).length;
+
+    $('stats-rewatch-sub').textContent = rCount > 0 ? `${rCount} rewatch${rCount !== 1 ? 'es' : ''}` : 'none yet';
+
+    if (rCount === 0) {
+      $('stats-rewatches').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">No rewatches logged yet. Mark films as rewatches on Letterboxd to see analysis here.</div>';
+      return;
+    }
+
+    // Group rewatches by original film
+    const rewtMap = {};
+    const origMap = {};
+    history.forEach(e => {
+      const key = `${e.title}|${e.year}`;
+      if (e.rewatch) {
+        rewtMap[key] = (rewtMap[key] || 0) + 1;
+      } else {
+        origMap[key] = e;
+      }
+    });
+
+    // Find top rewatched films
+    const topRewatches = Object.entries(rewtMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([key, count]) => {
+        const orig = origMap[key] || { title: key.split('|')[0], year: parseInt(key.split('|')[1]) };
+        return {
+          title: orig.title,
+          year: orig.year,
+          count,
+          avgRating: orig.rating
+        };
+      });
+
+    // Calculate average rating change (if original had a rating)
+    const avgRewatch = rewatches.filter(e => e.rating).length ?
+      (rewatches.reduce((s, e) => s + (e.rating || 0), 0) / rewatches.filter(e => e.rating).length).toFixed(1)
+      : '—';
+
+    $('stats-rewatches').innerHTML = `
+      <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 0.5px solid var(--border);">
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">
+          <strong>${rCount}</strong> rewatch${rCount !== 1 ? 'es' : ''} of <strong>${originals}</strong> unique film${originals !== 1 ? 's' : ''}
+        </div>
+        <div style="font-size: 11px; color: var(--text-tertiary);">
+          Avg rating on rewatch: <strong>★${avgRewatch}</strong>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-secondary);">
+        <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Most rewatched</div>
+        ${topRewatches.map((r, i) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 6px 8px; background: var(--bg-tertiary); border-radius: 4px;">
+            <div>
+              <div style="color: var(--text-primary);">${r.title} <span style="color: var(--text-tertiary);">${r.year}</span></div>
+            </div>
+            <div style="text-align: right; color: var(--accent-green); font-weight: 600;">
+              ${r.count}x
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ── Composers ─────────────────────────────────────────────────
+  function renderComposers(history) {
+    // Notable composers to track (famous, prolific, highly rated)
+    const COMPOSERS = {
+      'Hans Zimmer': ['Inception', 'The Dark Knight', 'Interstellar', 'Dune', 'Tenet', 'The Lion King', 'Gladiator', 'Pirates of the Caribbean', 'The Prestige', 'Batman Begins'],
+      'Ennio Morricone': ['The Good, the Bad and the Ugly', 'Once Upon a Time in the West', 'Cinema Paradiso', 'The Untouchables', 'A Fistful of Dollars'],
+      'John Williams': ['Star Wars', 'Jaws', 'E.T.', 'Jurassic Park', 'Schindler\'s List', 'Saving Private Ryan', 'Harry Potter'],
+      'Thomas Desplat': ['Harry Potter', 'The Grand Budapest Hotel', 'Fantastic Beasts', 'The Shape of Water', 'Wes Anderson'],
+      'Ludwig Göransson': ['Black Panther', 'Creed', 'Twisters', 'The Mandalorian'],
+      'Trent Reznor & Atticus Ross': ['The Social Network', 'The Girl with the Dragon Tattoo', 'Gone Girl'],
+      'Johann Johannsson': ['Arrival', 'Sicario', 'Theory of Everything'],
+      'Alexandre Desplat': ['Harry Potter', 'The Grand Budapest Hotel'],
+      'Max Richter': ['Shutter Island', 'Waltz with Bashir'],
+    };
+
+    // Track which films match which composers
+    const composerMatches = {};
+    const filmMatches = {};
+
+    history.forEach(entry => {
+      Object.entries(COMPOSERS).forEach(([composer, filmList]) => {
+        const match = filmList.find(f => entry.title.toLowerCase().includes(f.toLowerCase()) || f.toLowerCase().includes(entry.title.toLowerCase()));
+        if (match) {
+          if (!composerMatches[composer]) composerMatches[composer] = [];
+          composerMatches[composer].push(entry);
+          filmMatches[composer] = (filmMatches[composer] || 0) + 1;
+        }
+      });
+    });
+
+    // Get top composers
+    const topComposers = Object.entries(filmMatches)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([composer, count]) => {
+        const films = composerMatches[composer];
+        const avgRating = films.filter(f => f.rating).length > 0
+          ? (films.filter(f => f.rating).reduce((s, f) => s + f.rating, 0) / films.filter(f => f.rating).length).toFixed(1)
+          : '—';
+        return { composer, count, avgRating, films };
+      });
+
+    if (topComposers.length === 0) {
+      $('stats-composers').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">Watch more Hans Zimmer or Ennio Morricone films to see composer stats here.</div>';
+      return;
+    }
+
+    $('stats-composers').innerHTML = topComposers.map(c => `
+      <div class="stat-bar-row">
+        <span class="stat-bar-lbl">${esc(c.composer)}</span>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill" style="width:${(c.count / topComposers[0].count * 100).toFixed(0)}%;background:var(--accent-purple)"></div>
+        </div>
+        <span class="stat-bar-val">${c.count}</span>
+        <span class="stat-bar-avg">★${c.avgRating}</span>
+      </div>
+    `).join('');
+  }
+
+  // ── Streak breakdown ──────────────────────────────────────────
+  function renderStreakBreakdown(history) {
+    const dates = [...new Set(history.map(e => e.watchedDate).filter(Boolean))].sort();
+
+    if (dates.length === 0) {
+      $('stats-streaks').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">No watch dates yet.</div>';
+      return;
+    }
+
+    // Find all streaks
+    const streaks = [];
+    let currentStreak = 1;
+    let streakStart = new Date(dates[0]);
+
+    for (let i = 1; i < dates.length; i++) {
+      const prevDate = new Date(dates[i - 1]);
+      const currDate = new Date(dates[i]);
+      const diff = (currDate - prevDate) / 86400000;
+
+      if (diff === 1) {
+        currentStreak++;
+      } else {
+        streaks.push({
+          length: currentStreak,
+          start: streakStart,
+          end: prevDate
+        });
+        currentStreak = 1;
+        streakStart = currDate;
+      }
+    }
+    streaks.push({
+      length: currentStreak,
+      start: streakStart,
+      end: new Date(dates[dates.length - 1])
+    });
+
+    // Calculate stats
+    const longest = Math.max(...streaks.map(s => s.length));
+    const avg = (streaks.reduce((s, st) => s + st.length, 0) / streaks.length).toFixed(1);
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().slice(0, 10);
+    const current = (dates.includes(today) || dates.includes(yStr)) ? calcStreak(history, now) : 0;
+
+    // Top 5 longest streaks
+    const topStreaks = streaks.sort((a, b) => b.length - a.length).slice(0, 5);
+
+    $('stats-streaks').innerHTML = `
+      <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 0.5px solid var(--border);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <div style="font-size: 20px; font-weight: 600; color: var(--accent-green);">${current}d</div>
+            <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Current streak</div>
+          </div>
+          <div>
+            <div style="font-size: 20px; font-weight: 600; color: var(--accent-blue);">${longest}d</div>
+            <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Longest ever</div>
+          </div>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
+          Avg streak: <strong>${avg}d</strong> across <strong>${streaks.length}</strong> streaks
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-secondary);">
+        <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Top streaks</div>
+        ${topStreaks.map((s, i) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 6px 8px; background: var(--bg-tertiary); border-radius: 4px;">
+            <div style="font-size: 11px;">
+              <strong>${s.length}d</strong> · ${s.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${s.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ── Blind spots ────────────────────────────────────────────────
+  function renderBlindSpots(history) {
+    // Famous directors & their most acclaimed films
+    const FAMOUS_DIRECTORS = {
+      'Christopher Nolan': 15,
+      'Quentin Tarantino': 10,
+      'Steven Spielberg': 20,
+      'Martin Scorsese': 20,
+      'Denis Villeneuve': 12,
+      'Paul Thomas Anderson': 9,
+      'David Fincher': 9,
+      'Spike Lee': 30,
+      'Stanley Kubrick': 13,
+      'Alfred Hitchcock': 55,
+      'Billy Wilder': 30,
+      'François Truffaut': 25,
+      'Federico Fellini': 20,
+      'Bergman Ingmar': 45,
+      'Jean-Luc Godard': 30,
+      'Akira Kurosawa': 30,
+      'Orson Welles': 15
+    };
+
+    // Track which directors user has watched
+    const watchedDirs = new Set(history.map(e => e.director).filter(Boolean));
+
+    // Calculate blind spots
+    const blindSpots = Object.entries(FAMOUS_DIRECTORS)
+      .filter(([dir]) => !watchedDirs.has(dir))
+      .map(([dir, filmCount]) => ({
+        director: dir,
+        filmCount,
+        watched: history.filter(e => e.director === dir).length
+      }))
+      .sort((a, b) => b.filmCount - a.filmCount)
+      .slice(0, 8);
+
+    // Calculate coverage for watched directors
+    const coverage = Object.entries(FAMOUS_DIRECTORS)
+      .filter(([dir]) => watchedDirs.has(dir))
+      .map(([dir, filmCount]) => ({
+        director: dir,
+        total: filmCount,
+        watched: history.filter(e => e.director === dir).length
+      }))
+      .map(d => ({
+        ...d,
+        pct: Math.round((d.watched / d.total) * 100)
+      }))
+      .sort((a, b) => b.watched - a.watched)
+      .slice(0, 3);
+
+    if (blindSpots.length === 0) {
+      $('stats-blindspots').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">You\'ve watched all the major directors! 🎬</div>';
+      return;
+    }
+
+    $('stats-blindspots').innerHTML = `
+      ${coverage.length > 0 ? `
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 0.5px solid var(--border);">
+          <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary); font-size: 12px;">Watched directors</div>
+          ${coverage.map(c => `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px;">
+              <span>${esc(c.director)}</span>
+              <span style="color: var(--accent-green);">${c.watched}/${c.total} (${c.pct}%)</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div>
+        <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary); font-size: 12px;">Blind spots</div>
+        ${blindSpots.map((b, i) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 6px 8px; background: var(--bg-tertiary); border-radius: 4px; font-size: 11px;">
+            <div>${esc(b.director)}</div>
+            <div style="color: var(--text-tertiary);">${b.filmCount} films</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ── Taste DNA ────────────────────────────────────────────────
+  function renderTasteDNA(history) {
+    const rated = history.filter(e => e.rating != null);
+    if (rated.length < 5) {
+      $('stats-taste-dna').innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">Rate more films to generate your taste profile.</div>';
+      return;
+    }
+
+    // Top genres
+    const gc = {};
+    rated.forEach(e => (e.genres||[]).forEach(g => { gc[g] = (gc[g]||0)+1; }));
+    const topGenres = Object.entries(gc).sort((a,b) => b[1]-a[1]).slice(0,3).map(([g]) => g);
+
+    // Top decades
+    const dc = {};
+    rated.forEach(e => { if (e.decade) dc[e.decade] = (dc[e.decade]||0)+1; });
+    const topDecades = Object.entries(dc).sort((a,b) => b[1]-a[1]).slice(0,2).map(([d]) => d+'s');
+
+    // Avg rating
+    const avg = rated.reduce((s,e) => s+e.rating, 0) / rated.length;
+
+    // Bias vs TMDB consensus (your rating minus consensus, normalized to 5-star)
+    const withVote = rated.filter(e => e.voteAvg);
+    const bias = withVote.length >= 5
+      ? withVote.reduce((s,e) => s + (e.rating - e.voteAvg/2), 0) / withVote.length
+      : null;
+
+    // Std deviation (how polarized vs measured)
+    const stdDev = Math.sqrt(rated.reduce((s,e) => s + Math.pow(e.rating - avg, 2), 0) / rated.length);
+
+    // Most-trusted director (3+ films, highest avg rating)
+    const dCounts = {}, dRatings = {};
+    rated.forEach(e => {
+      if (!e.director) return;
+      dCounts[e.director] = (dCounts[e.director]||0)+1;
+      if (!dRatings[e.director]) dRatings[e.director] = [];
+      dRatings[e.director].push(e.rating);
+    });
+    const trustedDir = Object.entries(dCounts)
+      .filter(([,n]) => n >= 3)
+      .map(([d,n]) => ({ d, n, avg: dRatings[d].reduce((s,r)=>s+r,0)/dRatings[d].length }))
+      .sort((a,b) => b.avg - a.avg)[0];
+
+    // Rewatches
+    const rewatches = history.filter(e => e.rewatch).length;
+
+    const traits = [
+      topGenres.length ? { icon: 'ti-masks-theater', label: 'Top genres', value: topGenres.join(', ') } : null,
+      topDecades.length ? { icon: 'ti-calendar', label: 'Preferred eras', value: topDecades.join(' · ') } : null,
+      { icon: 'ti-star', label: 'Avg rating', value: `★${avg.toFixed(2)}` },
+      bias != null ? {
+        icon: 'ti-scale',
+        label: 'vs consensus',
+        value: `${bias >= 0 ? '+' : ''}${bias.toFixed(2)}★ ${bias > 0.25 ? '(generous)' : bias < -0.25 ? '(tough critic)' : '(aligned)'}`
+      } : null,
+      {
+        icon: 'ti-chart-bar',
+        label: 'Rating spread',
+        value: stdDev < 0.6 ? 'uniform (you rarely deviate)' : stdDev > 1.0 ? 'polarized (all-or-nothing)' : 'variable (case-by-case)'
+      },
+      trustedDir ? { icon: 'ti-movie', label: 'Most-trusted director', value: `${trustedDir.d} — ${trustedDir.n} films, ★${trustedDir.avg.toFixed(1)} avg` } : null,
+      rewatches ? { icon: 'ti-repeat', label: 'Rewatcher', value: `${rewatches} rewatch${rewatches>1?'es':''}` } : null,
+    ].filter(Boolean);
+
+    // One-liner summary
+    const biasWord  = bias == null ? '' : bias > 0.25 ? 'rate generously above consensus' : bias < -0.25 ? 'are a tough grader' : 'track close to consensus';
+    const spreadWord = stdDev < 0.6 ? 'consistent' : stdDev > 1 ? 'polarizing' : 'measured';
+    const genreStr  = topGenres.slice(0,2).join('/');
+    const decadeStr = topDecades[0] || '';
+    const summary = [
+      genreStr && decadeStr ? `A ${genreStr} fan with a soft spot for ${decadeStr} cinema.` : '',
+      biasWord ? `You ${biasWord}` : '',
+      `${spreadWord[0].toUpperCase()+spreadWord.slice(1)} in your opinions`,
+      trustedDir ? `with an evident trust in ${trustedDir.d}.` : '.',
+    ].filter(Boolean).join(', ').replace(/,\s*\./g,'.');
+
+    $('stats-taste-dna').innerHTML = `
+      <div class="dna-grid">${traits.map(t => `
+        <div class="dna-trait">
+          <div class="dna-icon"><i class="ti ${t.icon}"></i></div>
+          <div class="dna-content">
+            <div class="dna-label">${t.label}</div>
+            <div class="dna-value">${t.value}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      ${summary ? `<div class="dna-summary">${summary}</div>` : ''}
+    `;
+  }
+
+  // ── Temporal patterns ────────────────────────────────────────
+  function renderTemporal(history) {
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mc = new Array(12).fill(0);
+    const mr = new Array(12).fill(0);
+    const mn = new Array(12).fill(0);
+
+    history.forEach(e => {
+      if (!e.watchedDate) return;
+      const m = parseInt(e.watchedDate.slice(5,7), 10) - 1;
+      mc[m]++;
+      if (e.rating != null) { mr[m] += e.rating; mn[m]++; }
+    });
+
+    const maxCount = Math.max(...mc, 1);
+    const peakMonth = mc.indexOf(Math.max(...mc));
+
+    $('stats-temporal').innerHTML = `
+      <div class="temporal-grid">
+        ${mc.map((n, i) => {
+          const avg = mn[i] ? (mr[i]/mn[i]).toFixed(1) : null;
+          const hpct = (n / maxCount * 100).toFixed(0);
+          const isPeak = i === peakMonth;
+          return `
+            <div class="temp-col">
+              <div class="temp-bar-wrap">
+                <div class="temp-bar" style="height:${hpct}%;${isPeak ? 'opacity:1;background:var(--accent-green)' : ''}"
+                  title="${MONTHS[i]}: ${n} film${n!==1?'s':''}${avg ? `, avg ★${avg}` : ''}"></div>
+              </div>
+              <div class="temp-lbl">${MONTHS[i].slice(0,1)}</div>
+              <div class="temp-count" style="${isPeak ? 'color:var(--accent-green)' : ''}">${n||''}</div>
+            </div>`;
+        }).join('')}
+      </div>
+      <div class="temp-caption">watches by calendar month · most active: ${MONTHS[peakMonth]} (${mc[peakMonth]} films)</div>
+    `;
+  }
+
+  // ── Hottest takes ─────────────────────────────────────────────
+  function renderHottestTakes(history) {
+    const withVote = history.filter(e => e.rating != null && e.voteAvg && e.voteAvg > 0);
+    if (withVote.length < 3) {
+      $('stats-takes').innerHTML = `<div style="font-size:12px;color:var(--text-tertiary);padding:4px 0">
+        Needs TMDB enrichment to compare against consensus.<br>
+        <span style="font-size:10px;margin-top:4px;display:block">Your ratings will be benchmarked against TMDB audience scores once data loads.</span>
+      </div>`;
+      return;
+    }
+
+    const withDelta = withVote
+      .map(e => ({ ...e, delta: e.rating - (e.voteAvg / 2) }))
+      .sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 8);
+
+    $('stats-takes').innerHTML = withDelta.map(e => {
+      const d    = e.delta;
+      const sign = d >= 0 ? '+' : '';
+      const cls  = d >= 0 ? 'take-up' : 'take-down';
+      const icon = d >= 0 ? 'ti-arrow-up' : 'ti-arrow-down';
+      const name = e.title.length > 26 ? e.title.slice(0,26)+'…' : e.title;
+      return `
+        <div class="take-row">
+          <div class="take-title" title="${esc(e.title)}">${esc(name)}</div>
+          <div class="take-consensus">★${(e.voteAvg/2).toFixed(1)} avg</div>
+          <div class="take-delta ${cls}"><i class="ti ${icon}"></i>${sign}${d.toFixed(1)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Discoveries ──────────────────────────────────────────────
+  function renderDiscoveries(history) {
+    // Films rated 4+ with low TMDB vote_count (under-the-radar)
+    const THRESHOLD = 300000;
+    const disc = history
+      .filter(e => e.rating >= 4 && e.voteCount != null && e.voteCount < THRESHOLD)
+      .sort((a,b) => b.rating - a.rating || a.voteCount - b.voteCount)
+      .slice(0, 10);
+
+    if (!disc.length) {
+      const hasVote = history.some(e => e.voteCount != null);
+      $('stats-discoveries').innerHTML = hasVote
+        ? '<div style="font-size:12px;color:var(--text-tertiary)">No hidden gems found — your high-rated films are all well-known. Respect.</div>'
+        : '<div style="font-size:12px;color:var(--text-tertiary)">Waiting on TMDB enrichment to identify your discoveries.</div>';
+      return;
+    }
+
+    // Split into rows of 5
+    $('stats-discoveries').innerHTML = `<div class="disc-grid">${disc.map(e => {
+      const poster  = e.poster ? `<img src="${esc(e.poster)}" alt="" loading="lazy">` : `<i class="ti ti-movie"></i>`;
+      const votes   = e.voteCount < 1000 ? `${e.voteCount} ratings` : `${(e.voteCount/1000).toFixed(0)}k ratings`;
+      const dirMeta = [e.director, e.year].filter(Boolean).join(' · ');
+      return `
+        <div class="disc-row">
+          <div class="disc-poster">${poster}</div>
+          <div class="disc-info">
+            <div class="disc-title">${esc(e.title)}</div>
+            <div class="disc-meta">${esc(dirMeta)} · ${toStars(e.rating)}</div>
+          </div>
+          <div class="disc-badge">${votes} on TMDB</div>
+        </div>`;
+    }).join('')}</div>`;
+  }
+
+  // ── Canon ───────────────────────────────────────────────────
+  function canon(history) {
+    const canons = history.filter(e=>e.canon);
+    $('canon-count').textContent = `${canons.length} film${canons.length!==1?'s':''}`;
+
+    // Sort select
+    $('canon-sort').onchange = () => {
+      const view = document.querySelector('.cvt-btn.active')?.dataset.view || 'grid';
+      if (view === 'grid') renderCanonGrid(canons, $('canon-sort').value);
+      else renderTierShelf(canons);
+    };
+
+    // View toggle
+    document.querySelectorAll('.cvt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.cvt-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const view = btn.dataset.view;
+        if (view === 'grid') {
+          $('canon-grid').style.display = '';
+          $('canon-tiers').style.display = 'none';
+          renderCanonGrid(canons, $('canon-sort').value);
+        } else {
+          $('canon-grid').style.display = 'none';
+          $('canon-tiers').style.display = '';
+          renderTierShelf(canons);
+        }
+      });
+    });
+
+    // Initial render
+    renderCanonGrid(canons, $('canon-sort').value);
+    $('canon-overlay-bg').onclick = closeCanonOverlay;
+  }
+
+  function renderTierShelf(canons) {
+    const TIERS = [
+      { label: 'S', min: 5,   max: 5,    color: '#FFD700', bg: 'rgba(255,215,0,0.1)',   desc: 'essential' },
+      { label: 'A', min: 4.5, max: 4.9,  color: '#3fb950', bg: 'rgba(63,185,80,0.1)',  desc: 'great' },
+      { label: 'B', min: 4,   max: 4.49, color: '#58a6ff', bg: 'rgba(88,166,255,0.1)', desc: 'solid' },
+      { label: 'C', min: 3,   max: 3.99, color: '#8b949e', bg: 'rgba(139,148,158,0.1)','desc': 'good' },
+    ];
+
+    // Store per-tier arrays on the element for overlay
+    const tierData = {};
+    TIERS.forEach(t => {
+      tierData[t.label] = canons
+        .filter(e => e.rating != null && e.rating >= t.min && e.rating <= t.max)
+        .sort((a,b) => b.watchedDate.localeCompare(a.watchedDate));
+    });
+    $('canon-tiers')._tierData = tierData;
+
+    $('canon-tiers').innerHTML = TIERS.map(tier => {
+      const films = tierData[tier.label];
+      if (!films.length) return '';
+      return `
+        <div class="tier-row">
+          <div class="tier-label" style="color:${tier.color};background:${tier.bg}">
+            <span class="tier-letter">${tier.label}</span>
+            <span class="tier-count">${films.length}</span>
+          </div>
+          <div class="tier-films">
+            ${films.map((e,i) => {
+              const poster = e.poster
+                ? `<img src="${esc(e.poster)}" alt="${esc(e.title)}" loading="lazy" title="${esc(e.title)}">`
+                : `<div class="tier-poster-fallback" title="${esc(e.title)}">${esc(e.title.slice(0,3))}</div>`;
+              return `<div class="tier-poster" onclick="RENDER._openCanon_tier('${tier.label}',${i})" title="${esc(e.title)}">${poster}</div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }).filter(Boolean).join('');
+  }
+
+  function _openCanon_tier(tierLabel, idx) {
+    const tierData = $('canon-tiers')._tierData;
+    if (!tierData) return;
+    const items = tierData[tierLabel];
+    if (!items || !items[idx]) return;
+
+    // Reuse the same overlay as grid view
+    const e = items[idx];
+    const poster  = e.poster ? `<img src="${esc(e.poster)}" alt="${esc(e.title)}">` : `<i class="ti ti-movie"></i>`;
+    const runtime = e.runtime ? `${e.runtime} min` : null;
+    const meta    = [e.director, e.country, runtime].filter(Boolean).join(' · ');
+
+    $('canon-detail').innerHTML = `
+      <div class="cd-poster">${poster}</div>
+      <div class="cd-info">
+        <div class="cd-title">${esc(e.title)}</div>
+        ${e.director ? `<div class="cd-director">${esc(e.director)}</div>` : ''}
+        <div class="cd-year">${e.year||''}</div>
+        ${e.rating ? `<div class="cd-stars">${toStars(e.rating)}</div>` : ''}
+        ${meta ? `<div class="cd-meta-row"><span>${esc(meta)}</span></div>` : ''}
+        <div class="cd-meta-row" style="margin-top:auto">
+          <span>Watched ${e.watchedDate ? new Date(e.watchedDate).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : '—'}</span>
+        </div>
+      </div>
+      <button class="cd-close" onclick="RENDER._closeCanon()"><i class="ti ti-x"></i></button>
+    `;
+    $('canon-overlay').style.display = 'flex';
+  }
+
+  function renderCanonGrid(canons, sort) {
+    if (!canons.length) {
+      $('canon-grid').innerHTML = `
+        <div class="empty-state" style="grid-column: 1/-1">
+          <div class="empty-state-icon"><img src="favicon-tv-b.svg" style="width:52px;height:52px;opacity:0.5;"></div>
+          <div class="empty-state-msg">No films in your canon yet.<br><small>Like films on Letterboxd to add them.</small></div>
+        </div>`;
+      return;
+    }
+
+    const sorted = [...canons].sort((a,b) => {
+      if (sort === 'rating') return (b.rating||0)-(a.rating||0);
+      if (sort === 'year')   return (b.year||0)-(a.year||0);
+      if (sort === 'title')  return a.title.localeCompare(b.title);
+      return b.watchedDate.localeCompare(a.watchedDate); // date
+    });
+
+    $('canon-grid').innerHTML = sorted.map((e,i) => {
+      const poster = e.poster
+        ? `<img src="${esc(e.poster)}" alt="${esc(e.title)}" loading="lazy" onerror="this.parentNode.innerHTML='<i class=\\'ti ti-movie\\'></i>'">`
+        : `<i class="ti ti-movie"></i>`;
+      const stars = e.rating ? `<div class="canon-card-stars">${toStars(e.rating)}</div>` : '';
+      return `
+        <div class="canon-card" onclick="RENDER._openCanon(${i})" data-idx="${i}">
+          <div class="canon-poster">${poster}</div>
+          <div class="canon-card-footer">
+            <div class="canon-card-title">${esc(e.title)}</div>
+            <div class="canon-card-meta">${e.year||''}</div>
+            ${stars}
+          </div>
+        </div>`;
+    }).join('');
+
+    // Store for overlay
+    $('canon-grid')._items = sorted;
+  }
+
+  function _openCanon(idx) {
+    const items = $('canon-grid')._items;
+    if (!items) return;
+    const e = items[idx];
+    if (!e) return;
+
+    const poster = e.poster
+      ? `<img src="${esc(e.poster)}" alt="${esc(e.title)}">`
+      : `<i class="ti ti-movie"></i>`;
+    const runtime = e.runtime ? `${e.runtime} min` : null;
+    const meta = [e.director, e.country, runtime].filter(Boolean).join(' · ');
+
+    $('canon-detail').innerHTML = `
+      <div class="cd-poster">${poster}</div>
+      <div class="cd-info">
+        <div class="cd-title">${esc(e.title)}</div>
+        ${e.director ? `<div class="cd-director">${esc(e.director)}</div>` : ''}
+        <div class="cd-year">${e.year||''}</div>
+        ${e.rating ? `<div class="cd-stars">${toStars(e.rating)}</div>` : ''}
+        ${meta ? `<div class="cd-meta-row"><span>${esc(meta)}</span></div>` : ''}
+        <div class="cd-meta-row" style="margin-top:auto">
+          <span>Watched ${e.watchedDate ? new Date(e.watchedDate).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : '—'}</span>
+        </div>
+      </div>
+      <button class="cd-close" onclick="RENDER._closeCanon()"><i class="ti ti-x"></i></button>
+    `;
+    $('canon-overlay').style.display = 'flex';
+  }
+
+  function _closeCanon() {
+    $('canon-overlay').style.display = 'none';
+  }
+
+  function closeCanonOverlay() { _closeCanon(); }
+
+  return { overview, diary, stats, canon, _diaryPage: renderDiaryPage, _openCanon, _openCanon_tier, _closeCanon };
+})();
+
+/* ============================================================
+   UI  — tabs, theme, import
+   ============================================================ */
+const UI = (() => {
+
+  function initTabs() {
+    // Track which tabs have been rendered (lazy — only render on first visit)
+    const rendered = { overview: true }; // overview rendered by INIT
+
+    document.querySelectorAll('.mg-nav a[data-tab]').forEach(a => {
+      a.addEventListener('click', () => {
+        document.querySelectorAll('.mg-nav a').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+        a.classList.add('active');
+        document.getElementById('tab-' + a.dataset.tab)?.classList.add('active');
+
+        const tab = a.dataset.tab;
+        const h   = STORE.getHistory();
+
+        if (tab === 'diary' && !rendered.diary) {
+          RENDER.diary(h);
+          rendered.diary = true;
+        } else if (tab === 'diary') {
+          // Re-render in case history changed (e.g. after RSS poll or import)
+          RENDER.diary(h);
+        } else if (tab === 'stats' && !rendered.stats) {
+          RENDER.stats(h);
+          rendered.stats = true;
+        } else if (tab === 'stats') {
+          RENDER.stats(h);
+        } else if (tab === 'canon' && !rendered.canon) {
+          RENDER.canon(h);
+          rendered.canon = true;
+        } else if (tab === 'canon') {
+          RENDER.canon(h);
+        }
+      });
+    });
+
+    // Diary filter wiring — resets to page 0 on any filter change
+    function diaryFilter() {
+      const h = STORE.getHistory();
+      RENDER._diaryPage(h, 0);
+    }
+
+    document.getElementById('diary-search').addEventListener('input',  diaryFilter);
+    document.getElementById('diary-year')  .addEventListener('change', diaryFilter);
+    document.getElementById('diary-genre') .addEventListener('change', diaryFilter);
+    document.getElementById('diary-rating').addEventListener('change', diaryFilter);
+
+    document.getElementById('diary-toggle-canon').addEventListener('click', function () {
+      const next = this.dataset.active === 'true' ? 'false' : 'true';
+      this.dataset.active = next;
+      this.classList.toggle('active', next === 'true');
+      diaryFilter();
+    });
+    // Prev/Next pagination: handled inline by renderDiaryPage via onclick bindings
+  }
+
+  function initTheme() {
+    const saved   = STORE.getTheme();
+    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (sysDark ? 'dark' : 'light'));
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      STORE.setTheme(next);
+    });
+  }
+
+  function applyTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.getElementById('theme-icon').className = t === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
+  }
+
+  function initImport() {
+    const zone  = document.getElementById('import-zone');
+    const input = document.getElementById('csv-input');
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const f = e.dataTransfer?.files?.[0];
+      if (f) handleFile(f);
+    });
+
+    input.addEventListener('change', () => { if (input.files?.[0]) handleFile(input.files[0]); });
+  }
+
+  function handleFile(file) {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast('Please drop a Letterboxd CSV file', 'error'); return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const entries = DATA.parseCSV(ev.target.result);
+      if (!entries.length) { toast('No entries found in that file', 'error'); return; }
+
+      const merged = DATA.merge(STORE.getHistory(), entries);
+      STORE.setHistory(merged);
+      STORE.markCsvDone();
+      MG.renderActiveTab(merged);
+      toast(`Imported ${entries.length} films ✓`, 'success');
+
+      // Background TMDB enrichment
+      setTimeout(() => TMDB.enrichBatch(merged, h => MG.renderActiveTab(h)), 1200);
+    };
+    reader.readAsText(file);
+  }
+
+  function initModal() {
+    const modal = document.getElementById('about-modal');
+    const openBtn = document.getElementById('about-btn');
+    const closeBtn = document.getElementById('modal-close');
+
+    openBtn.addEventListener('click', () => {
+      modal.classList.add('open');
+    });
+
+    closeBtn.addEventListener('click', () => {
+      modal.classList.remove('open');
+    });
+
+    modal.addEventListener('click', (e) => {
+      // Close when clicking outside the modal content
+      if (e.target === modal) {
+        modal.classList.remove('open');
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('open')) {
+        modal.classList.remove('open');
+      }
+    });
+  }
+
+  function toast(msg, type = 'info') {
+    const el   = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    el.className = 'toast ' + type + ' show';
+    document.getElementById('toast-msg').textContent = msg;
+    icon.className = type === 'success' ? 'ti ti-check' : type === 'error' ? 'ti ti-alert-circle' : 'ti ti-info-circle';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3600);
+  }
+
+  return { initTabs, initTheme, initImport, initModal, toast };
+})();
+
+/* ============================================================
+   SEED DATA  — baked-in watch history from Letterboxd export
+   ============================================================ */
+const SEED_DATA = [{"id":"lock-stock-and-two-smoking-barrels-1998","title":"Lock, Stock and Two Smoking Barrels","year":1998,"director":null,"rating":4.5,"watchedDate":"2026-01-02","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b92","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"three-billboards-outside-ebbing-missouri-2017","title":"Three Billboards Outside Ebbing, Missouri","year":2017,"director":null,"rating":4.5,"watchedDate":"2026-01-02","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/ceBS","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":true,"source":"seed"},{"id":"my-neighbor-totoro-1988","title":"My Neighbor Totoro","year":1988,"director":null,"rating":3.5,"watchedDate":"2025-12-31","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/20eA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"snatch-2000","title":"Snatch","year":2000,"director":null,"rating":4.5,"watchedDate":"2025-12-30","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b7U","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"the-sixth-sense-1999","title":"The Sixth Sense","year":1999,"director":null,"rating":4.5,"watchedDate":"2025-12-30","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29Js","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"citizen-kane-1941","title":"Citizen Kane","year":1941,"director":null,"rating":4.5,"watchedDate":"2025-12-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/71O","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1940,"canon":false,"source":"seed"},{"id":"the-grand-budapest-hotel-2014","title":"The Grand Budapest Hotel","year":2014,"director":null,"rating":4.5,"watchedDate":"2025-12-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/3ZqO","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"cinema-paradiso-1988","title":"Cinema Paradiso","year":1988,"director":null,"rating":4.0,"watchedDate":"2025-12-28","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1UlA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"(500)-days-of-summer-2009","title":"(500) Days of Summer","year":2009,"director":null,"rating":5.0,"watchedDate":"2025-12-24","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/1EmM","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":true,"source":"seed"},{"id":"chainsaw-man-–-the-movie-reze-arc-2025","title":"Chainsaw Man – The Movie: Reze Arc","year":2025,"director":null,"rating":4.5,"watchedDate":"2025-12-23","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/Kgyu","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2020,"canon":false,"source":"seed"},{"id":"raging-bull-1980","title":"Raging Bull","year":1980,"director":null,"rating":4.5,"watchedDate":"2025-12-08","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/28yI","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"princess-mononoke-1997","title":"Princess Mononoke","year":1997,"director":null,"rating":4.0,"watchedDate":"2025-12-08","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b4w","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"scarface-1983","title":"Scarface","year":1983,"director":null,"rating":4.0,"watchedDate":"2025-12-06","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b7g","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"apocalypse-now-1979","title":"Apocalypse Now","year":1979,"director":null,"rating":4.5,"watchedDate":"2025-11-17","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/6ZS","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":false,"source":"seed"},{"id":"there-will-be-blood-2007","title":"There Will Be Blood","year":2007,"director":null,"rating":4.0,"watchedDate":"2025-11-12","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/20Z2","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"joker-2019","title":"Joker","year":2019,"director":null,"rating":4.0,"watchedDate":"2025-11-10","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/h4cS","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-green-mile-1999","title":"The Green Mile","year":1999,"director":null,"rating":4.0,"watchedDate":"2025-11-07","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2agG","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"before-midnight-2013","title":"Before Midnight","year":2013,"director":null,"rating":4.5,"watchedDate":"2025-11-05","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/4ive","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"before-sunset-2004","title":"Before Sunset","year":2004,"director":null,"rating":4.5,"watchedDate":"2025-11-02","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2bcg","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"before-sunrise-1995","title":"Before Sunrise","year":1995,"director":null,"rating":5.0,"watchedDate":"2025-10-31","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2bcU","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"},{"id":"arrival-2016","title":"Arrival","year":2016,"director":null,"rating":4.5,"watchedDate":"2025-10-30","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/aNGk","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"gone-girl-2014","title":"Gone Girl","year":2014,"director":null,"rating":4.5,"watchedDate":"2025-10-21","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/6hQu","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"trainspotting-1996","title":"Trainspotting","year":1996,"director":null,"rating":4.0,"watchedDate":"2025-10-12","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29XY","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"la-la-land-2016","title":"La La Land","year":2016,"director":null,"rating":4.5,"watchedDate":"2025-10-04","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/a5fa","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":true,"source":"seed"},{"id":"barry-lyndon-1975","title":"Barry Lyndon","year":1975,"director":null,"rating":3.5,"watchedDate":"2025-09-10","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/25A2","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":false,"source":"seed"},{"id":"eyes-wide-shut-1999","title":"Eyes Wide Shut","year":1999,"director":null,"rating":4.5,"watchedDate":"2025-09-09","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2axs","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"back-to-the-future-1985","title":"Back to the Future","year":1985,"director":null,"rating":3.5,"watchedDate":"2025-09-08","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b8e","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"heat-1995","title":"Heat","year":1995,"director":null,"rating":4.5,"watchedDate":"2025-09-07","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2bg8","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"},{"id":"jaws-1975","title":"Jaws","year":1975,"director":null,"rating":3.5,"watchedDate":"2025-09-01","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2a5e","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":false,"source":"seed"},{"id":"american-history-x-1998","title":"American History X","year":1998,"director":null,"rating":4.5,"watchedDate":"2025-08-31","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2bdo","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"casino-1995","title":"Casino","year":1995,"director":null,"rating":4.0,"watchedDate":"2025-08-26","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2ads","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"la-haine-1995","title":"La Haine","year":1995,"director":null,"rating":5.0,"watchedDate":"2025-08-23","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2as8","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"},{"id":"fargo-1996","title":"Fargo","year":1996,"director":null,"rating":3.0,"watchedDate":"2025-08-23","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aHM","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"double-indemnity-1944","title":"Double Indemnity","year":1944,"director":null,"rating":4.0,"watchedDate":"2025-08-23","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/297I","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1940,"canon":false,"source":"seed"},{"id":"city-of-god-2002","title":"City of God","year":2002,"director":null,"rating":4.0,"watchedDate":"2025-08-19","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2a2a","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"life-is-beautiful-1997","title":"Life Is Beautiful","year":1997,"director":null,"rating":4.5,"watchedDate":"2025-08-19","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29Wm","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"dune-part-two-2024","title":"Dune: Part Two","year":2024,"director":null,"rating":4.5,"watchedDate":"2025-08-18","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/pUfA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2020,"canon":true,"source":"seed"},{"id":"dunkirk-2017","title":"Dunkirk","year":2017,"director":null,"rating":4.0,"watchedDate":"2025-08-16","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/d0Y6","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"it-s-a-wonderful-life-1946","title":"It's a Wonderful Life","year":1946,"director":null,"rating":3.5,"watchedDate":"2025-08-16","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/28xA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1940,"canon":false,"source":"seed"},{"id":"forrest-gump-1994","title":"Forrest Gump","year":1994,"director":null,"rating":3.0,"watchedDate":"2025-08-16","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/728","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"batman-begins-2005","title":"Batman Begins","year":2005,"director":null,"rating":4.0,"watchedDate":"2025-08-15","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aIg","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"the-prestige-2006","title":"The Prestige","year":2006,"director":null,"rating":5.0,"watchedDate":"2025-08-15","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/293w","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":true,"source":"seed"},{"id":"once-upon-a-time-in-hollywood-2019","title":"Once Upon a Time... in Hollywood","year":2019,"director":null,"rating":4.5,"watchedDate":"2025-08-10","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/gH0O","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"kill-bill-vol-2-2004","title":"Kill Bill: Vol. 2","year":2004,"director":null,"rating":4.5,"watchedDate":"2025-08-10","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2au4","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"tenet-2020","title":"Tenet","year":2020,"director":null,"rating":3.5,"watchedDate":"2025-08-10","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/leq4","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2020,"canon":false,"source":"seed"},{"id":"strangers-on-a-train-1951","title":"Strangers on a Train","year":1951,"director":null,"rating":4.0,"watchedDate":"2025-08-10","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29tk","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":false,"source":"seed"},{"id":"django-unchained-2012","title":"Django Unchained","year":2012,"director":null,"rating":3.5,"watchedDate":"2025-08-09","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2cCk","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"once-upon-a-time-in-the-west-1968","title":"Once Upon a Time in the West","year":1968,"director":null,"rating":4.0,"watchedDate":"2025-08-09","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2az4","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1960,"canon":false,"source":"seed"},{"id":"kill-bill-vol-1-2003","title":"Kill Bill: Vol. 1","year":2003,"director":null,"rating":4.5,"watchedDate":"2025-08-09","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/70w","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"reservoir-dogs-1992","title":"Reservoir Dogs","year":1992,"director":null,"rating":4.0,"watchedDate":"2025-08-09","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2agc","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"for-a-few-dollars-more-1965","title":"For a Few Dollars More","year":1965,"director":null,"rating":4.5,"watchedDate":"2025-08-06","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29eu","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1960,"canon":false,"source":"seed"},{"id":"taxi-driver-1976","title":"Taxi Driver","year":1976,"director":null,"rating":4.0,"watchedDate":"2025-08-04","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b8y","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":false,"source":"seed"},{"id":"the-godfather-part-ii-1974","title":"The Godfather Part II","year":1974,"director":null,"rating":4.5,"watchedDate":"2025-08-04","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aNq","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":false,"source":"seed"},{"id":"paths-of-glory-1957","title":"Paths of Glory","year":1957,"director":null,"rating":4.5,"watchedDate":"2025-08-02","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29b6","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":false,"source":"seed"},{"id":"dr-strangelove-or-how-i-learned-to-stop-worrying-and-love-the-bomb-1964","title":"Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb","year":1964,"director":null,"rating":4.5,"watchedDate":"2025-08-02","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29eY","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1960,"canon":false,"source":"seed"},{"id":"full-metal-jacket-1987","title":"Full Metal Jacket","year":1987,"director":null,"rating":4.0,"watchedDate":"2025-07-30","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2a1Q","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"2001-a-space-odyssey-1968","title":"2001: A Space Odyssey","year":1968,"director":null,"rating":3.5,"watchedDate":"2025-07-30","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2bf0","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1960,"canon":false,"source":"seed"},{"id":"north-by-northwest-1959","title":"North by Northwest","year":1959,"director":null,"rating":4.0,"watchedDate":"2025-07-30","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aRM","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":false,"source":"seed"},{"id":"memories-of-murder-2003","title":"Memories of Murder","year":2003,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1TSo","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"oldboy-2003","title":"Oldboy","year":2003,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29R2","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"a-clockwork-orange-1971","title":"A Clockwork Orange","year":1971,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2aVE","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":true,"source":"seed"},{"id":"good-will-hunting-1997","title":"Good Will Hunting","year":1997,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2ahY","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"},{"id":"prisoners-2013","title":"Prisoners","year":2013,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/4E5i","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":true,"source":"seed"},{"id":"avengers-endgame-2019","title":"Avengers: Endgame","year":2019,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/9vE4","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-incredibles-2004","title":"The Incredibles","year":2004,"director":null,"rating":2.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1XLm","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"grave-of-the-fireflies-1988","title":"Grave of the Fireflies","year":1988,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1RUM","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"your-name-2016","title":"Your Name.","year":2016,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/cUqs","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"psycho-1960","title":"Psycho","year":1960,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2ab2","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1960,"canon":false,"source":"seed"},{"id":"12-angry-men-1957","title":"12 Angry Men","year":1957,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2auI","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":true,"source":"seed"},{"id":"no-country-for-old-men-2007","title":"No Country for Old Men","year":2007,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/21ew","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"rear-window-1954","title":"Rear Window","year":1954,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2a6Q","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":false,"source":"seed"},{"id":"toy-story-1995","title":"Toy Story","year":1995,"director":null,"rating":3.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29qA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"one-flew-over-the-cuckoo-s-nest-1975","title":"One Flew Over the Cuckoo's Nest","year":1975,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2aeA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":true,"source":"seed"},{"id":"memento-2000","title":"Memento","year":2000,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2bcK","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"inside-out-2015","title":"Inside Out","year":2015,"director":null,"rating":3.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/4KHC","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"finding-nemo-2003","title":"Finding Nemo","year":2003,"director":null,"rating":2.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/72i","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"top-gun-maverick-2022","title":"Top Gun: Maverick","year":2022,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/cjr4","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2020,"canon":false,"source":"seed"},{"id":"witness-for-the-prosecution-1957","title":"Witness for the Prosecution","year":1957,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/18H4","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":false,"source":"seed"},{"id":"harry-potter-and-the-deathly-hallows-part-2-2011","title":"Harry Potter and the Deathly Hallows: Part 2","year":2011,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1RYk","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"pan-s-labyrinth-2006","title":"Pan's Labyrinth","year":2006,"director":null,"rating":2.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/28No","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"ford-v-ferrari-2019","title":"Ford v Ferrari","year":2019,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/ce74","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-good-the-bad-and-the-ugly-1966","title":"The Good, the Bad and the Ugly","year":1966,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2ape","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1960,"canon":true,"source":"seed"},{"id":"schindler-s-list-1993","title":"Schindler's List","year":1993,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2aq2","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"},{"id":"inglourious-basterds-2009","title":"Inglourious Basterds","year":2009,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1JzG","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"pulp-fiction-1994","title":"Pulp Fiction","year":1994,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29Pq","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"the-truman-show-1998","title":"The Truman Show","year":1998,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/18U8","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"whiplash-2014","title":"Whiplash","year":2014,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/7bQA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":true,"source":"seed"},{"id":"the-silence-of-the-lambs-1991","title":"The Silence of the Lambs","year":1991,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aHW","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"léon-the-professional-1994","title":"Léon: The Professional","year":1994,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b8S","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"interstellar-2014","title":"Interstellar","year":2014,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/4VZ8","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-pianist-2002","title":"The Pianist","year":2002,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aqc","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"shutter-island-2010","title":"Shutter Island","year":2010,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1U82","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-dark-knight-rises-2012","title":"The Dark Knight Rises","year":2012,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/H3m","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-lives-of-others-2006","title":"The Lives of Others","year":2006,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2a4A","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"the-wolf-of-wall-street-2013","title":"The Wolf of Wall Street","year":2013,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/3C1m","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"oppenheimer-2023","title":"Oppenheimer","year":2023,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/wUow","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2020,"canon":true,"source":"seed"},{"id":"saving-private-ryan-1998","title":"Saving Private Ryan","year":1998,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29ro","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"the-usual-suspects-1995","title":"The Usual Suspects","year":1995,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/29XE","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"},{"id":"the-shining-1980","title":"The Shining","year":1980,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29Nu","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"the-dark-knight-2008","title":"The Dark Knight","year":2008,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b0k","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"avengers-infinity-war-2018","title":"Avengers: Infinity War","year":2018,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/9vEe","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"fight-club-1999","title":"Fight Club","year":1999,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2a9q","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"},{"id":"goodfellas-1990","title":"GoodFellas","year":1990,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29FA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"dead-poets-society-1989","title":"Dead Poets Society","year":1989,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aSg","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1980,"canon":false,"source":"seed"},{"id":"12th-fail-2023","title":"12th Fail","year":2023,"director":null,"rating":3.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/I1sM","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2020,"canon":false,"source":"seed"},{"id":"eternal-sunshine-of-the-spotless-mind-2004","title":"Eternal Sunshine of the Spotless Mind","year":2004,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/6YK","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"the-departed-2006","title":"The Departed","year":2006,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/28MA","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"spider-man-across-the-spider-verse-2023","title":"Spider-Man: Across the Spider-Verse","year":2023,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/kSz4","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2020,"canon":false,"source":"seed"},{"id":"inception-2010","title":"Inception","year":2010,"director":null,"rating":5.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1skk","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"dial-m-for-murder-1954","title":"Dial M for Murder","year":1954,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2adW","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":false,"source":"seed"},{"id":"vertigo-1958","title":"Vertigo","year":1958,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2apI","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1950,"canon":false,"source":"seed"},{"id":"up-2009","title":"Up","year":2009,"director":null,"rating":2.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1OEc","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"coco-2017","title":"Coco","year":2017,"director":null,"rating":2.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/bYJQ","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"parasite-2019","title":"Parasite","year":2019,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/hTha","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-godfather-1972","title":"The Godfather","year":1972,"director":null,"rating":4.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2aNK","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1970,"canon":false,"source":"seed"},{"id":"the-matrix-1999","title":"The Matrix","year":1999,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2a1m","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"requiem-for-a-dream-2000","title":"Requiem for a Dream","year":2000,"director":null,"rating":2.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29VI","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"harakiri-1962","title":"Harakiri","year":1962,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1NTU","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1960,"canon":false,"source":"seed"},{"id":"spider-man-into-the-spider-verse-2018","title":"Spider-Man: Into the Spider-Verse","year":2018,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/azpY","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"the-lion-king-1994","title":"The Lion King","year":1994,"director":null,"rating":3.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/201Q","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"toy-story-3-2010","title":"Toy Story 3","year":2010,"director":null,"rating":2.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/1WRe","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2010,"canon":false,"source":"seed"},{"id":"se7en-1995","title":"Se7en","year":1995,"director":null,"rating":4.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/29zs","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":false,"source":"seed"},{"id":"spirited-away-2001","title":"Spirited Away","year":2001,"director":null,"rating":3.5,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2b4m","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"monsters-inc-2001","title":"Monsters, Inc.","year":2001,"director":null,"rating":3.0,"watchedDate":"2025-07-29","rewatch":false,"tags":[],"letterboxdUrl":"https://boxd.it/2a46","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":2000,"canon":false,"source":"seed"},{"id":"the-shawshank-redemption-1994","title":"The Shawshank Redemption","year":1994,"director":null,"rating":5.0,"watchedDate":"2025-07-26","rewatch":false,"tags":["liked"],"letterboxdUrl":"https://boxd.it/2aHi","tmdbId":null,"poster":null,"genres":[],"runtime":null,"country":null,"decade":1990,"canon":true,"source":"seed"}];
+
+/* ============================================================
+   INIT
+   ============================================================ */
+const MG = (() => {
+
+  async function init() {
+    UI.initTheme();
+    UI.initTabs();
+    UI.initImport();
+    UI.initModal();
+
+    // Seed localStorage from baked data on first load
+    let history = STORE.getHistory();
+    if (!history.length) {
+      history = SEED_DATA;
+      STORE.setHistory(history);
+      STORE.markCsvDone();
+    }
+    RENDER.overview(history);
+
+    // Kick off TMDB enrichment in background (fills genres, posters, directors)
+    setTimeout(() => TMDB.enrichBatch(history, h => renderActiveTab(h)), 800);
+
+    // First RSS poll (picks up anything newer than the seed data)
+    await pollRSS();
+
+    // Schedule recurring poll
+    setInterval(pollRSS, CFG.POLL_MS);
+    updateSyncStamp();
+    setInterval(updateSyncStamp, 60000); // keep label fresh between polls
+  }
+
+  async function pollRSS() {
+    const entries = await LB.poll();
+    if (!entries.length) { STORE.setLastPoll(); updateSyncStamp(); return; }
+
+    const current = STORE.getHistory();
+    const merged  = DATA.merge(current, entries);
+    if (merged.length > current.length) {
+      const n = merged.length - current.length;
+      STORE.setHistory(merged);
+      STORE.setLastPoll();
+      renderActiveTab(merged);
+      UI.toast(`${n} new entr${n > 1 ? 'ies' : 'y'} from Letterboxd`, 'success');
+    } else {
+      STORE.setLastPoll();
+    }
+    updateSyncStamp();
+  }
+
+  function updateSyncStamp() {
+    const el = document.getElementById('last-synced');
+    if (!el) return;
+    const last = STORE.getLastPoll();
+    if (!last) { el.textContent = 'synced just now'; return; }
+    const mins = Math.round((Date.now() - new Date(last)) / 60000);
+    el.textContent = mins < 1 ? 'synced just now' : `synced ${mins}m ago`;
+  }
+
+  function renderActiveTab(h) {
+    const active = document.querySelector('.mg-nav a.active');
+    const tab    = active ? active.dataset.tab : 'overview';
+    if      (tab === 'diary')    RENDER.diary(h);
+    else if (tab === 'stats')    RENDER.stats(h);
+    else if (tab === 'canon')    RENDER.canon(h);
+    else                         RENDER.overview(h);
+  }
+
+  function dismissImport() {
+    document.getElementById('import-wrap').style.display = 'none';
+  }
+
+  return { init, dismissImport, renderActiveTab };
+})();
+
+/* ── Helpers ── */
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+document.addEventListener('DOMContentLoaded', () => MG.init());
+
+/* ── Keyboard shortcuts ── */
+document.addEventListener('keydown', e => {
+  // Ignore when typing in an input
+  if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+
+  const tabs = ['overview','diary','stats','canon'];
+  const tabKeys = { '1': 'overview', '2': 'diary', '3': 'stats', '4': 'canon' };
+
+  if (tabKeys[e.key]) {
+    e.preventDefault();
+    document.querySelector(`.mg-nav a[data-tab="${tabKeys[e.key]}"]`)?.click();
+  } else if (e.key === '/') {
+    e.preventDefault();
+    // Switch to diary then focus search
+    document.querySelector('.mg-nav a[data-tab="diary"]')?.click();
+    setTimeout(() => document.getElementById('diary-search')?.focus(), 50);
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Transparent background, black & white only -->
+  <!-- Variant B: thicker strokes, rounder TV, more compact -->
+
+  <!-- White circle background -->
+  <circle cx="128" cy="148" r="108" fill="white"/>
+
+  <!-- Antenna base bump -->
+  <rect x="116" y="58" width="24" height="16" rx="4" fill="black"/>
+
+  <!-- Left antenna -->
+  <line x1="122" y1="62" x2="90" y2="22" stroke="black" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="89" cy="20" r="7" fill="black"/>
+
+  <!-- Right antenna -->
+  <line x1="134" y1="62" x2="166" y2="22" stroke="black" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="167" cy="20" r="7" fill="black"/>
+
+  <!-- TV body (outer shell) — chunkier, more rounded -->
+  <rect x="55" y="72" width="158" height="110" rx="18" fill="white" stroke="black" stroke-width="8"/>
+
+  <!-- TV screen — large and prominent -->
+  <rect x="68" y="84" width="108" height="86" rx="8" fill="white" stroke="black" stroke-width="7"/>
+
+  <!-- Controls strip on right -->
+  <circle cx="194" cy="105" r="6" fill="none" stroke="black" stroke-width="4"/>
+  <circle cx="194" cy="126" r="6" fill="none" stroke="black" stroke-width="4"/>
+  <circle cx="194" cy="147" r="5" fill="black"/>
+
+  <!-- Neck -->
+  <rect x="114" y="182" width="28" height="16" rx="4" fill="black"/>
+
+  <!-- Shoulders — wide, flowing -->
+  <path d="M 20 256 C 20 200 75 192 128 192 C 181 192 236 200 236 256 Z" fill="black"/>
+</svg>
