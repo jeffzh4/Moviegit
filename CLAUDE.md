@@ -1,6 +1,6 @@
 # MovieGit — Project Context for Claude
 
-## Current Status: v1.0 shipped, v1.1 in progress
+## Current Status: v1.2 shipped, v1.3 in planning
 
 MovieGit is a GitHub-profile-inspired personal film dashboard. Single self-contained `index.html` — no build step, no server. Live at: https://jeffzh4.github.io/Moviegit (GitHub Pages).
 
@@ -194,7 +194,8 @@ MG        — bootstrap + pollRSS loop + updateSyncStamp
 
 ## Phase 2 Roadmap
 
-- [ ] `?user=handle` URL param for read-only public sharing
+- [x] `?user=handle` URL param for read-only public sharing (guest banner, namespaced storage, RSS override)
+- [x] URL state for active tab (`?tab=`)
 - [ ] Settings panel: enter any Letterboxd username + TMDB key
 - [ ] Director completion expansion (beyond top 12)
 - [ ] Shareable taste drift "report card"

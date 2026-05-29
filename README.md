@@ -257,7 +257,18 @@ Also in the portfolio:
 
 ## Changelog
 
-### v1.1 (Current)
+### v1.2 (Current)
+- ✅ `?user=handle` guest view — read-only dashboard for any Letterboxd user, namespaced storage
+- ✅ URL state for active tab (`?tab=diary` etc.) — deep-linkable, preserved across nav
+- ✅ Year in Film prose panel — auto-generated narrative summary of the current year
+- ✅ Contribution graph film-title tooltips — hover shows film names for each day
+- ✅ Milestone markers — gold dots on graph at the 50th / 100th / 250th / 500th film
+- ✅ Taste DNA narrative rewrite — personality-profile prose, not a stats dump
+- ✅ "Days of your life" + "Longest gap" in By the Numbers
+- ✅ Web Share API button — native share sheet on mobile, clipboard fallback on desktop
+- ✅ Enrichment progress bar — thin green bar fills as TMDB data loads
+
+### v1.1
 - ✅ `mg log` terminal diary view with deterministic FNV-1a commit hashes
 - ✅ Director filmography completion % (lazy TMDB person API, cached)
 - ✅ Taste drift panel (year-over-year diff: watch count, avg rating, genre, new directors)
@@ -285,13 +296,13 @@ Also in the portfolio:
 - ✅ Hottest takes callout
 - ✅ Genre sparklines
 
-### v1.2 Roadmap
-- [ ] `?user=handle` for public read-only sharing
-- [ ] Settings panel (multi-user)
+### v1.3 Roadmap
+- [ ] Settings panel (multi-user — enter any username + TMDB key)
 - [ ] Composer data from TMDB credits (replace curated map)
 - [ ] Terminal mode (full green-on-black aesthetic)
 - [ ] Export enriched history as JSON/CSV
 - [ ] Blind spots director count from TMDB (replace hardcoded map)
+- [ ] Service worker / offline support
 
 ---
 

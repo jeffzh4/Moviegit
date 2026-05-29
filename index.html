@@ -1359,6 +1359,69 @@
     .panel, .mcard, .mg-header, .mg-sidebar, .pin-card,
     .streak-card, .genre-track, .rb-track { transition: background .2s, border-color .2s; }
 
+    /* ── Enrichment progress bar ── */
+    #enrich-bar-wrap {
+      position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 9999;
+      pointer-events: none;
+    }
+    #enrich-bar {
+      height: 100%; width: 0%; background: var(--accent-green);
+      transition: width .3s ease, opacity .4s ease;
+      box-shadow: 0 0 6px var(--accent-green);
+    }
+
+    /* ── Milestone cell on contribution graph ── */
+    .cg-milestone {
+      position: relative;
+    }
+    .cg-milestone::before {
+      content: '';
+      position: absolute; top: 1px; right: 1px;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--accent-orange);
+      box-shadow: 0 0 3px var(--accent-orange);
+      z-index: 2;
+    }
+
+    /* ── Read-only / guest banner ── */
+    #guest-banner {
+      display: none;
+      background: linear-gradient(90deg, rgba(88,166,255,.1), rgba(88,166,255,.05));
+      border-bottom: 1px solid rgba(88,166,255,.25);
+      padding: 7px 20px;
+      font-size: 11px; color: var(--accent-blue);
+      display: flex; align-items: center; gap: 8px;
+    }
+    #guest-banner.hidden { display: none !important; }
+
+    /* ── Year in Film panel ── */
+    .yif-wrap {
+      background: linear-gradient(135deg, rgba(63,185,80,.07) 0%, rgba(88,166,255,.04) 100%);
+      border: 1px solid rgba(63,185,80,.2);
+      border-left: 3px solid var(--accent-green);
+      border-radius: var(--r-md);
+      padding: 14px 16px;
+    }
+    .yif-heading {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+      color: var(--accent-green); font-weight: 600; margin-bottom: 10px;
+    }
+    .yif-prose {
+      font-size: 13px; color: var(--text-primary); line-height: 1.75;
+    }
+    .yif-prose strong { color: var(--text-primary); }
+    .yif-stats {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      margin-top: 12px; padding-top: 10px;
+      border-top: 0.5px solid var(--border-muted);
+    }
+    .yif-chip {
+      font-size: 11px; color: var(--text-secondary);
+      background: var(--bg-tertiary); border-radius: 99px;
+      padding: 3px 9px;
+    }
+    .yif-chip strong { color: var(--text-primary); }
+
     /* ── mg log (terminal diary view) ── */
     .diary-log-toggle {
       display: flex; gap: 4px;
@@ -1549,7 +1612,17 @@
 </head>
 <body>
 
+<!-- Enrichment progress bar -->
+<div id="enrich-bar-wrap"><div id="enrich-bar"></div></div>
+
 <div class="mg">
+
+  <!-- Guest / read-only banner -->
+  <div id="guest-banner" class="hidden">
+    <i class="ti ti-eye" style="font-size:13px"></i>
+    <span>Viewing <strong id="guest-handle">@user</strong>'s dashboard — read-only · data from Letterboxd RSS</span>
+    <a href="?" style="margin-left:auto;color:var(--accent-blue);text-decoration:none;font-size:11px">← back to my dashboard</a>
+  </div>
 
   <!-- ── Header ── -->
   <header class="mg-header">
@@ -1575,6 +1648,9 @@
     </nav>
 
     <div class="mg-header-right">
+      <button class="icon-btn" id="share-btn" aria-label="Share dashboard" title="Share this dashboard">
+        <i class="ti ti-share"></i>
+      </button>
       <button class="icon-btn" id="about-btn" aria-label="About MovieGit">
         <i class="ti ti-help-circle"></i>
       </button>
@@ -1719,6 +1795,13 @@
           <div id="hottest-takes-list" style="display: flex; flex-direction: column; gap: 8px;">
             <div style="font-size: 11px; color: var(--text-tertiary);">Loading…</div>
           </div>
+        </div>
+
+        <!-- Year in Film -->
+        <div class="yif-wrap" id="yif-panel" style="display:none">
+          <div class="yif-heading"><i class="ti ti-calendar-stats" style="margin-right:5px"></i>year in film</div>
+          <div class="yif-prose" id="yif-prose"></div>
+          <div class="yif-stats" id="yif-chips"></div>
         </div>
 
         <!-- Charts row -->
@@ -2214,7 +2297,7 @@ const DATA = (() => {
    ============================================================ */
 const LB = (() => {
   async function poll() {
-    const url = CFG.PROXY + encodeURIComponent(CFG.RSS_URL);
+    const url = CFG.PROXY + encodeURIComponent(CFG._rssOverride || CFG.RSS_URL);
     try {
       const r    = await fetch(url);
       const json = await r.json();
@@ -2337,25 +2420,37 @@ const TMDB = (() => {
 
   async function enrichBatch(entries, onDone) {
     if (!CFG.TMDB_KEY) return;
-    const todo = entries.filter(e => !e.tmdbId || !e.director || e.voteAvg == null).slice(0, 80); // cap per session
-    if (!todo.length) return;
+    const todo = entries.filter(e => !e.tmdbId || !e.director || e.voteAvg == null).slice(0, 80);
+    if (!todo.length) { if (onDone) onDone(entries); return; }
     const BATCH = 4;
-    let enriched = 0;
+    let done = 0;
+    const total = todo.length;
+
+    // Show progress bar
+    const bar = document.getElementById('enrich-bar');
+    if (bar) { bar.style.width = '4%'; bar.style.opacity = '1'; }
+
     for (let i = 0; i < todo.length; i += BATCH) {
       await Promise.all(
         todo.slice(i, i + BATCH).map(async e => {
           const result = await enrich(e);
           const idx = entries.findIndex(x => x.id === e.id && x.watchedDate === e.watchedDate);
           if (idx !== -1) entries[idx] = result;
-          enriched++;
+          done++;
+          if (bar) bar.style.width = Math.min(96, 4 + (done / total) * 92) + '%';
         })
       );
       await sleep(280);
     }
-    STORE.setHistory(entries);
-    if (enriched > 0) {
-      UI.toast(`Enriched ${enriched} film${enriched > 1 ? 's' : ''} with TMDB data ✓`, 'success');
+
+    // Complete + fade out
+    if (bar) {
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.opacity = '0'; setTimeout(() => { bar.style.width = '0%'; bar.style.opacity = '1'; }, 500); }, 400);
     }
+
+    STORE.setHistory(entries);
+    if (done > 0) UI.toast(`Enriched ${done} film${done > 1 ? 's' : ''} with TMDB data ✓`, 'success');
     if (onDone) onDone(entries);
   }
 
@@ -2376,6 +2471,7 @@ const RENDER = (() => {
     renderContrib(history, now);
     renderMetrics(history, now);
     renderHotTakes(history);
+    renderYearInFilm(history, now);
     renderRatingDist(history);
     renderFeed(history.slice(0, 7));
     renderSidebar(history);
@@ -2384,16 +2480,90 @@ const RENDER = (() => {
     $('import-wrap').style.display = (!history.length && !STORE.isCsvDone()) ? '' : 'none';
   }
 
+  // ── Year in Film ──────────────────────────────────────────
+  function renderYearInFilm(history, now) {
+    const panel = $('yif-panel');
+    const prose = $('yif-prose');
+    const chips = $('yif-chips');
+    if (!panel || !prose || !chips) return;
+
+    const currentYear = String(now.getFullYear());
+    const thisYear = history.filter(e => e.watchedDate?.startsWith(currentYear));
+    if (thisYear.length < 5) { panel.style.display = 'none'; return; }
+
+    panel.style.display = '';
+
+    // Core stats
+    const rated   = thisYear.filter(e => e.rating != null);
+    const avgRat  = rated.length ? (rated.reduce((s,e) => s+e.rating, 0) / rated.length) : null;
+    const totalMin = thisYear.reduce((s,e) => s+(e.runtime||0), 0);
+
+    // Genre breakdown
+    const gc = {};
+    thisYear.forEach(e => (e.genres||[]).forEach(g => { gc[g]=(gc[g]||0)+1; }));
+    const topGenre   = Object.entries(gc).sort((a,b)=>b[1]-a[1])[0];
+    const genrePct   = topGenre && thisYear.length ? Math.round(topGenre[1]/thisYear.length*100) : null;
+
+    // Decades spanned
+    const decadeSet  = new Set(thisYear.map(e=>e.decade).filter(Boolean));
+
+    // Most active month
+    const mc = {};
+    thisYear.forEach(e => { if (e.watchedDate) { const m=e.watchedDate.slice(0,7); mc[m]=(mc[m]||0)+1; } });
+    const bestMonth  = Object.entries(mc).sort((a,b)=>b[1]-a[1])[0];
+    const bestMonthName = bestMonth ? new Date(bestMonth[0]+'-01').toLocaleString('default',{month:'long'}) : null;
+    const bestMonthCount = bestMonth?.[1] || 0;
+
+    // New directors this year (not watched before this year)
+    const beforeYear = new Set(history.filter(e => e.watchedDate && e.watchedDate < currentYear+'-01-01').map(e=>e.director).filter(Boolean));
+    const newDirs    = [...new Set(thisYear.map(e=>e.director).filter(Boolean))].filter(d => !beforeYear.has(d));
+
+    // Streak
+    const yearStreak = calcLongestStreak(thisYear);
+
+    // Prose assembly
+    const parts = [];
+    parts.push(`In <strong>${currentYear}</strong>, you've watched <strong>${thisYear.length} film${thisYear.length>1?'s':''}</strong>${decadeSet.size > 1 ? ` across <strong>${decadeSet.size} decades</strong>` : ''}.`);
+    if (topGenre && genrePct) parts.push(`<strong>${topGenre[0]}</strong> has been your dominant genre (${genrePct}% of watches).`);
+    if (avgRat) parts.push(`Your average rating this year is <strong>★${avgRat.toFixed(2)}</strong>.`);
+    if (newDirs.length) parts.push(`You discovered <strong>${newDirs.length} new director${newDirs.length>1?'s':''}</strong>${newDirs.length <= 3 ? ` — ${newDirs.join(', ')}` : ''}.`);
+    if (bestMonthName && bestMonthCount > 1) parts.push(`Most active month: <strong>${bestMonthName}</strong> (${bestMonthCount} films).`);
+    if (yearStreak > 2) parts.push(`Your best streak this year: <strong>${yearStreak} days</strong> straight.`);
+
+    prose.innerHTML = parts.join(' ');
+
+    // Stat chips
+    const chipData = [
+      totalMin >= 60 ? { label: 'Watch time', val: Math.round(totalMin/60)+'h' } : null,
+      { label: 'Films', val: String(thisYear.length) },
+      avgRat ? { label: 'Avg ★', val: avgRat.toFixed(2) } : null,
+      newDirs.length ? { label: 'New directors', val: String(newDirs.length) } : null,
+      decadeSet.size ? { label: 'Decades', val: String(decadeSet.size) } : null,
+    ].filter(Boolean);
+
+    chips.innerHTML = chipData.map(c => `<span class="yif-chip"><strong>${c.val}</strong> ${c.label}</span>`).join('');
+  }
+
   // ── Contribution graph ────────────────────────────────────
   function renderContrib(history, now) {
     const grid     = $('cgrid');
     const monthRow = $('contrib-months');
     grid.innerHTML = monthRow.innerHTML = '';
 
-    // Build date → count map
+    // Build date → count + titles maps
     const countMap = {};
+    const titleMap = {};
+    // Build milestone set: dates of 100th, 250th, 500th, 1000th film
+    const milestoneDates = new Set();
+    const sortedByDate = [...history].filter(e => e.watchedDate).sort((a,b) => a.watchedDate.localeCompare(b.watchedDate));
+    const MILESTONES = [50, 100, 250, 500, 1000];
+    MILESTONES.forEach(n => { if (sortedByDate[n-1]) milestoneDates.add(sortedByDate[n-1].watchedDate); });
+
     history.forEach(e => {
-      if (e.watchedDate) countMap[e.watchedDate] = (countMap[e.watchedDate] || 0) + 1;
+      if (!e.watchedDate) return;
+      countMap[e.watchedDate] = (countMap[e.watchedDate] || 0) + 1;
+      if (!titleMap[e.watchedDate]) titleMap[e.watchedDate] = [];
+      titleMap[e.watchedDate].push(e.title);
     });
 
     // Anchor to the Sunday of the current week
@@ -2430,9 +2600,16 @@ const RENDER = (() => {
         const el = document.createElement('div');
         el.className = 'cg-cell c' + (future ? 0 : level);
         if (future) el.style.opacity = '.18';
-        const label = count === 0
-          ? `No films · ${fmtDate(cell)}`
-          : `${count} film${count > 1 ? 's' : ''} · ${fmtDate(cell)}`;
+        if (!future && milestoneDates.has(iso)) el.classList.add('cg-milestone');
+
+        const titles = titleMap[iso] || [];
+        let label;
+        if (count === 0) {
+          label = `No films · ${fmtDate(cell)}`;
+        } else {
+          const titleStr = titles.slice(0, 3).join(', ') + (titles.length > 3 ? ` +${titles.length - 3} more` : '');
+          label = `${count} film${count > 1 ? 's' : ''} · ${fmtDate(cell)}: ${titleStr}`;
+        }
         el.setAttribute('data-tip', label);
         grid.appendChild(el);
       }
@@ -3204,6 +3381,23 @@ const RENDER = (() => {
     const decades   = new Set(history.map(e=>e.decade).filter(Boolean)).size;
     const directors = new Set(history.map(e=>e.director).filter(Boolean)).size;
 
+    // Time well spent — total minutes as days
+    const totalDays  = totalMin ? (totalMin / 1440).toFixed(1) : null;
+    const timeWell   = totalDays ? `${totalDays}d` : '—';
+
+    // Longest gap between watch dates
+    const allDates = [...new Set(history.map(e=>e.watchedDate).filter(Boolean))].sort();
+    let longestGap = 0, gapLabel = '—';
+    for (let i = 1; i < allDates.length; i++) {
+      const diff = Math.round((new Date(allDates[i]) - new Date(allDates[i-1])) / 86400000);
+      if (diff > longestGap) {
+        longestGap = diff;
+        const d1 = new Date(allDates[i-1]).toLocaleString('default',{month:'short',year:'2-digit'});
+        const d2 = new Date(allDates[i]).toLocaleString('default',{month:'short',year:'2-digit'});
+        gapLabel = `${longestGap}d`;
+      }
+    }
+
     $('stats-numbers').innerHTML = `
       <div class="numbers-grid">
         <div class="num-card"><div class="num-val">${history.length}</div><div class="num-lbl">Films watched</div></div>
@@ -3214,6 +3408,8 @@ const RENDER = (() => {
         <div class="num-card"><div class="num-val">${longestS}d</div><div class="num-lbl">Longest streak</div></div>
         <div class="num-card"><div class="num-val">${decades}</div><div class="num-lbl">Decades covered</div></div>
         <div class="num-card"><div class="num-val">${directors||'—'}</div><div class="num-lbl">Directors</div></div>
+        <div class="num-card" title="Total runtime expressed as days of your life"><div class="num-val">${timeWell}</div><div class="num-lbl">Days of your life</div></div>
+        <div class="num-card" title="Longest gap between any two consecutive watch dates"><div class="num-val">${gapLabel}</div><div class="num-lbl">Longest gap</div></div>
       </div>`;
   }
 
@@ -3568,17 +3764,34 @@ const RENDER = (() => {
       rewatches ? { icon: 'ti-repeat', label: 'Rewatcher', value: `${rewatches} rewatch${rewatches>1?'es':''}` } : null,
     ].filter(Boolean);
 
-    // One-liner summary
-    const biasWord  = bias == null ? '' : bias > 0.25 ? 'rate generously above consensus' : bias < -0.25 ? 'are a tough grader' : 'track close to consensus';
-    const spreadWord = stdDev < 0.6 ? 'consistent' : stdDev > 1 ? 'polarizing' : 'measured';
-    const genreStr  = topGenres.slice(0,2).join('/');
-    const decadeStr = topDecades[0] || '';
-    const summary = [
-      genreStr && decadeStr ? `A ${genreStr} fan with a soft spot for ${decadeStr} cinema.` : '',
-      biasWord ? `You ${biasWord}` : '',
-      `${spreadWord[0].toUpperCase()+spreadWord.slice(1)} in your opinions`,
-      trustedDir ? `with an evident trust in ${trustedDir.d}.` : '.',
-    ].filter(Boolean).join(', ').replace(/,\s*\./g,'.');
+    // Narrative profile — reads like a personality description, not a stats dump
+    const genreStr   = topGenres.slice(0,2).join('/');
+    const decadeStr  = topDecades[0] || '';
+    const biasDesc   = bias == null ? null
+      : bias >  0.5  ? 'a generous rater — you champion films the crowd underrates'
+      : bias >  0.2  ? 'slightly above consensus, with a tendency to see the best in films'
+      : bias < -0.5  ? 'a tough critic — you hold films to a higher standard than most'
+      : bias < -0.2  ? 'a shade below consensus, harder to impress than average'
+      : 'closely aligned with consensus — you and the crowd usually agree';
+    const spreadDesc = stdDev < 0.6  ? 'Your ratings cluster tightly — you\'re reliable and consistent.'
+      : stdDev > 1.0 ? 'Your ratings swing wildly — you love some films passionately and dismiss others without mercy.'
+      : 'Your opinions are measured, neither predictable nor erratic.';
+    const dirTrust   = trustedDir
+      ? `You return to ${trustedDir.d} more than any other director (${trustedDir.n} films, ★${trustedDir.avg.toFixed(1)} avg) — unconditional trust.`
+      : '';
+    const rewatchLine = rewatches
+      ? `${rewatches} rewatch${rewatches > 1 ? 'es' : ''} logged — you\'re a believer in second viewings.`
+      : '';
+
+    const parts = [
+      genreStr ? `You\'re a <strong>${genreStr}</strong> devotee${decadeStr ? `, with a gravitational pull toward <strong>${decadeStr} cinema</strong>` : ''}.` : '',
+      biasDesc ? `As a rater, you\'re ${biasDesc}.` : '',
+      spreadDesc,
+      dirTrust,
+      rewatchLine,
+    ].filter(Boolean);
+
+    const summary = parts.join(' ');
 
     $('stats-taste-dna').innerHTML = `
       <div class="dna-grid">${traits.map(t => `
@@ -3883,35 +4096,30 @@ const UI = (() => {
     // Track which tabs have been rendered (lazy — only render on first visit)
     const rendered = { overview: true }; // overview rendered by INIT
 
+    function switchTab(tabName) {
+      const a = document.querySelector(`.mg-nav a[data-tab="${tabName}"]`);
+      if (!a) return;
+      document.querySelectorAll('.mg-nav a').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+      document.getElementById('tab-' + tabName)?.classList.add('active');
+
+      const h = STORE.getHistory();
+      if (tabName === 'diary') { RENDER.diary(h); rendered.diary = true; }
+      else if (tabName === 'stats') { RENDER.stats(h); rendered.stats = true; }
+      else if (tabName === 'canon') { RENDER.canon(h); rendered.canon = true; }
+      // Push URL state (replace so back button doesn't loop through tabs)
+      const url = new URL(window.location);
+      url.searchParams.set('tab', tabName);
+      window.history.replaceState({}, '', url);
+    }
+
     document.querySelectorAll('.mg-nav a[data-tab]').forEach(a => {
-      a.addEventListener('click', () => {
-        document.querySelectorAll('.mg-nav a').forEach(x => x.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
-        a.classList.add('active');
-        document.getElementById('tab-' + a.dataset.tab)?.classList.add('active');
-
-        const tab = a.dataset.tab;
-        const h   = STORE.getHistory();
-
-        if (tab === 'diary' && !rendered.diary) {
-          RENDER.diary(h);
-          rendered.diary = true;
-        } else if (tab === 'diary') {
-          // Re-render in case history changed (e.g. after RSS poll or import)
-          RENDER.diary(h);
-        } else if (tab === 'stats' && !rendered.stats) {
-          RENDER.stats(h);
-          rendered.stats = true;
-        } else if (tab === 'stats') {
-          RENDER.stats(h);
-        } else if (tab === 'canon' && !rendered.canon) {
-          RENDER.canon(h);
-          rendered.canon = true;
-        } else if (tab === 'canon') {
-          RENDER.canon(h);
-        }
-      });
+      a.addEventListener('click', () => switchTab(a.dataset.tab));
     });
+
+    // Expose for programmatic use
+    UI._switchTab = switchTab;
 
     // Diary filter wiring — resets to page 0 on any filter change
     function diaryFilter() {
@@ -3986,6 +4194,27 @@ const UI = (() => {
     reader.readAsText(file);
   }
 
+  function initShare() {
+    document.getElementById('share-btn')?.addEventListener('click', async () => {
+      const url   = window.location.href;
+      const title = 'MovieGit — Film Dashboard';
+      const text  = 'My film watching history, visualized like a GitHub profile.';
+      try {
+        if (navigator.share) {
+          await navigator.share({ title, text, url });
+        } else {
+          await navigator.clipboard.writeText(url);
+          toast('URL copied to clipboard ✓', 'success');
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          // Clipboard fallback
+          try { await navigator.clipboard.writeText(url); toast('URL copied ✓', 'success'); } catch {}
+        }
+      }
+    });
+  }
+
   function initModal() {
     const modal = document.getElementById('about-modal');
     const openBtn = document.getElementById('about-btn');
@@ -4024,7 +4253,7 @@ const UI = (() => {
     el._t = setTimeout(() => el.classList.remove('show'), 3600);
   }
 
-  return { initTabs, initTheme, initImport, initModal, toast };
+  return { initTabs, initTheme, initImport, initModal, initShare, toast };
 })();
 
 /* ============================================================
@@ -4042,26 +4271,57 @@ const MG = (() => {
     UI.initTabs();
     UI.initImport();
     UI.initModal();
+    UI.initShare();
 
-    // Seed localStorage from baked data on first load
+    // ── URL param handling ──────────────────────────────────
+    const params   = new URLSearchParams(window.location.search);
+    const urlUser  = params.get('user')?.toLowerCase().trim();
+    const urlTab   = params.get('tab');
+    const isGuest  = urlUser && urlUser !== CFG.USERNAME.toLowerCase();
+
+    if (isGuest) {
+      // Override username for guest view — use namespaced storage keys
+      CFG._guestUser = urlUser;
+      const banner = document.getElementById('guest-banner');
+      const handle = document.getElementById('guest-handle');
+      if (banner) { banner.classList.remove('hidden'); }
+      if (handle) handle.textContent = '@' + urlUser;
+
+      // Update sidebar handle display
+      const nameEl   = document.querySelector('.user-name');
+      const handleEl = document.querySelector('.user-handle');
+      if (nameEl)   nameEl.textContent = '@' + urlUser;
+      if (handleEl) { handleEl.textContent = '@' + urlUser; handleEl.href = `https://letterboxd.com/${urlUser}/`; }
+
+      // Use guest-scoped RSS URL (override CFG inline)
+      CFG._rssOverride = `https://letterboxd.com/${urlUser}/rss/`;
+    }
+
+    // Seed localStorage from baked data on first load (skip for guest views)
     let history = STORE.getHistory();
-    if (!history.length) {
+    if (!history.length && !isGuest) {
       history = SEED_DATA;
       STORE.setHistory(history);
       STORE.markCsvDone();
     }
+
     RENDER.overview(history);
 
-    // Kick off TMDB enrichment in background (fills genres, posters, directors)
+    // Activate tab from URL param
+    if (urlTab && urlTab !== 'overview') {
+      setTimeout(() => UI._switchTab?.(urlTab), 0);
+    }
+
+    // Kick off TMDB enrichment in background
     setTimeout(() => TMDB.enrichBatch(history, h => renderActiveTab(h)), 800);
 
-    // First RSS poll (picks up anything newer than the seed data)
+    // First RSS poll
     await pollRSS();
 
     // Schedule recurring poll
     setInterval(pollRSS, CFG.POLL_MS);
     updateSyncStamp();
-    setInterval(updateSyncStamp, 60000); // keep label fresh between polls
+    setInterval(updateSyncStamp, 60000);
   }
 
   async function pollRSS() {
