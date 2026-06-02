@@ -2275,11 +2275,31 @@ const DATA = (() => {
     return cols;
   }
 
-  // Merge two arrays deduped by id+watchedDate, sorted newest first
+  // Merge two arrays deduped by id+watchedDate, with title+year+date fallback
+  // (RSS slugs can differ from seed-data slugs: 'inception' vs 'inception-2010')
   function merge(existing, incoming) {
-    const seen = new Set(existing.map(e => `${e.id}|${e.watchedDate}`));
-    const fresh = incoming.filter(e => !seen.has(`${e.id}|${e.watchedDate}`));
-    return [...existing, ...fresh].sort((a, b) => b.watchedDate.localeCompare(a.watchedDate));
+    const byId    = new Set(existing.map(e => `${e.id}|${e.watchedDate}`));
+    const byTitle = new Set(existing.map(e => `${(e.title||'').toLowerCase()}|${e.year}|${e.watchedDate}`));
+    const fresh   = incoming.filter(e => {
+      if (byId.has(`${e.id}|${e.watchedDate}`)) return false;
+      if (byTitle.has(`${(e.title||'').toLowerCase()}|${e.year}|${e.watchedDate}`)) return false;
+      return true;
+    });
+    // For entries that already exist (by title+date), upgrade with RSS data (rating, rewatch flag)
+    const upgraded = existing.map(ex => {
+      const match = incoming.find(inc =>
+        (inc.title||'').toLowerCase() === (ex.title||'').toLowerCase() &&
+        inc.year === ex.year && inc.watchedDate === ex.watchedDate
+      );
+      if (!match) return ex;
+      return {
+        ...ex,
+        rating:  match.rating  ?? ex.rating,
+        rewatch: match.rewatch || ex.rewatch,
+        poster:  ex.poster     || match.poster,
+      };
+    });
+    return [...upgraded, ...fresh].sort((a, b) => b.watchedDate.localeCompare(a.watchedDate));
   }
 
   // Normalize date strings → YYYY-MM-DD
@@ -2297,7 +2317,11 @@ const DATA = (() => {
    ============================================================ */
 const LB = (() => {
   async function poll() {
-    const url = CFG.PROXY + encodeURIComponent(CFG._rssOverride || CFG.RSS_URL);
+    // Append a per-poll epoch (changes every 5 min) to bust allorigins.win's cache
+    const rssBase  = CFG._rssOverride || CFG.RSS_URL;
+    const cacheBust = Math.floor(Date.now() / (5 * 60 * 1000));
+    const rssUrl   = rssBase + (rssBase.includes('?') ? '&' : '?') + '_cb=' + cacheBust;
+    const url = CFG.PROXY + encodeURIComponent(rssUrl);
     try {
       const r    = await fetch(url);
       const json = await r.json();
@@ -2338,9 +2362,12 @@ const LB = (() => {
         const poster  = imgM ? imgM[1] : null;
 
         // Derive slug from Letterboxd link
-        const parts = link.replace(/\/$/, '').split('/').filter(Boolean);
-        const slug  = parts[parts.length - 1]
-                      || rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        // Diary entry URLs: /username/film/inception/1/ — last segment is a number, film slug is second-to-last
+        // Film page URLs:   /username/film/inception/   — last segment is the slug
+        const parts    = link.replace(/\/$/, '').split('/').filter(Boolean);
+        const lastSeg  = parts[parts.length - 1] || '';
+        const filmSlug = /^\d+$/.test(lastSeg) ? (parts[parts.length - 2] || lastSeg) : lastSeg;
+        const slug     = filmSlug || rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
         const r = isNaN(ratingRaw) ? null : ratingRaw;
 
