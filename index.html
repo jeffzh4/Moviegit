@@ -1753,6 +1753,7 @@
               <div class="cl-cell c4"></div>
               <span>more</span>
               <span id="last-synced" style="margin-left:auto;font-size:10px;color:var(--text-tertiary);opacity:0.7;"></span>
+              <button id="force-sync-btn" title="Force sync now" style="margin-left:8px;background:none;border:1px solid var(--border);border-radius:var(--r-sm);padding:2px 7px;font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);cursor:pointer;transition:color .15s,border-color .15s;" onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--accent-green)'" onmouseout="this.style.color='var(--text-tertiary)';this.style.borderColor='var(--border)'">↻ sync</button>
             </div>
           </div>
         </div>
@@ -2316,24 +2317,76 @@ const DATA = (() => {
    LETTERBOXD  — RSS poll
    ============================================================ */
 const LB = (() => {
-  async function poll() {
-    // Append a per-poll epoch (changes every 5 min) to bust allorigins.win's cache
-    const rssBase  = CFG._rssOverride || CFG.RSS_URL;
-    const cacheBust = Math.floor(Date.now() / (5 * 60 * 1000));
-    const rssUrl   = rssBase + (rssBase.includes('?') ? '&' : '?') + '_cb=' + cacheBust;
-    const url = CFG.PROXY + encodeURIComponent(rssUrl);
+
+  // Fetch RSS XML text, trying two proxies. allorigins returns JSON wrapper;
+  // corsproxy.io returns raw text. Both are tried in order.
+  async function fetchRSS(rssUrl) {
+    // Proxy 1: allorigins.win — JSON wrapper, add ts to outer URL to discourage CDN caching
     try {
-      const r    = await fetch(url);
-      const json = await r.json();
-      if (!json.contents) return [];
+      const ts  = Date.now();
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&_ts=${ts}`);
+      if (res.ok) {
+        const json = await res.json();
+        const xml  = json?.contents || '';
+        if (xml.includes('<item>') || xml.includes('<item ')) {
+          console.log('[LB] fetched via allorigins');
+          return xml;
+        }
+        console.warn('[LB] allorigins returned no <item> tags, contents length:', xml.length);
+      }
+    } catch (e) { console.warn('[LB] allorigins failed:', e.message); }
 
-      const doc   = new DOMParser().parseFromString(json.contents, 'text/xml');
+    // Proxy 2: corsproxy.io — raw response
+    try {
+      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(rssUrl)}`);
+      if (res.ok) {
+        const xml = await res.text();
+        if (xml.includes('<item>') || xml.includes('<item ')) {
+          console.log('[LB] fetched via corsproxy.io');
+          return xml;
+        }
+        console.warn('[LB] corsproxy returned no <item> tags, length:', xml.length);
+      }
+    } catch (e) { console.warn('[LB] corsproxy failed:', e.message); }
 
-      // Try to extract avatar from channel <image><url> or <itunes:image href>
-      const chanImgUrl = doc.querySelector('channel > image > url')?.textContent?.trim()
-                      || doc.querySelector('channel image url')?.textContent?.trim();
-      const itunesImg  = doc.querySelector('image')?.getAttribute('href') || null;
-      const avatarUrl  = chanImgUrl || itunesImg;
+    return null;
+  }
+
+  // Robust helper: gets text of an element by local name, handling XML namespaces.
+  // querySelector doesn't reliably handle "letterboxd:watchedDate" prefixes across browsers.
+  function getXmlText(node, localName) {
+    // getElementsByTagName handles "prefix:localName" correctly in XML documents
+    const withPrefix = node.getElementsByTagName('letterboxd:' + localName);
+    if (withPrefix.length) return withPrefix[0].textContent?.trim() || '';
+    // Also try without prefix (some parsers normalise)
+    const withoutPrefix = node.getElementsByTagName(localName);
+    if (withoutPrefix.length) return withoutPrefix[0].textContent?.trim() || '';
+    return '';
+  }
+
+  function getStdText(node, tag) {
+    const els = node.getElementsByTagName(tag);
+    return els.length ? (els[0].textContent?.trim() || '') : '';
+  }
+
+  async function poll() {
+    const rssUrl = CFG._rssOverride || CFG.RSS_URL;
+    try {
+      const xml = await fetchRSS(rssUrl);
+      if (!xml) { console.warn('[LB] all proxies failed'); return []; }
+
+      const doc   = new DOMParser().parseFromString(xml, 'text/xml');
+
+      // Check for parse error
+      if (doc.querySelector('parsererror')) {
+        console.warn('[LB] XML parse error');
+        return [];
+      }
+
+      // Extract avatar from channel <image><url>
+      const chanImg   = doc.querySelector('channel > image > url') ||
+                        doc.querySelector('channel image url');
+      const avatarUrl = chanImg?.textContent?.trim() || null;
       if (avatarUrl) {
         const el = document.getElementById('sidebar-avatar');
         if (el && !el.querySelector('img')) {
@@ -2341,56 +2394,53 @@ const LB = (() => {
         }
       }
 
-      const items = Array.from(doc.querySelectorAll('item'));
+      const items = Array.from(doc.getElementsByTagName('item'));
+      console.log(`[LB] parsed ${items.length} RSS items`);
 
       return items.map(item => {
-        const txt = tag => item.querySelector(tag)?.textContent?.trim() || '';
+        // Use getElementsByTagName for all fields — reliable for XML namespaces
+        const watchedRaw = getXmlText(item, 'watchedDate')
+          || (() => { try { return new Date(getStdText(item, 'pubDate')).toISOString().slice(0,10); } catch { return ''; } })();
+        const ratingRaw  = parseFloat(getXmlText(item, 'memberRating') || getXmlText(item, 'rating') || getStdText(item, 'rating'));
+        const rewatchRaw = (getXmlText(item, 'rewatch') || 'no').toLowerCase();
+        const filmYear   = parseInt(getXmlText(item, 'filmYear')) || null;
 
-        // Letterboxd RSS uses namespaced tags: <letterboxd:watchedDate> etc.
-        // DOMParser normalises these — try both with and without prefix
-        const watchedRaw = txt('watchedDate') || txt('letterboxd\\:watchedDate') ||
-                           (() => { try { return new Date(txt('pubDate')).toISOString().slice(0,10); } catch { return ''; } })();
-        const ratingRaw  = parseFloat(txt('memberRating') || txt('letterboxd\\:memberRating') || txt('rating'));
-        const rewatchRaw = txt('rewatch') || txt('letterboxd\\:rewatch');
-        const filmYear   = parseInt(txt('filmYear') || txt('letterboxd\\:filmYear')) || null;
-        const rawTitle   = txt('title').replace(/^[★½\d\s,]+[-–—]?\s*/, ''); // strip rating prefix
-        const link       = txt('link');
+        // Title: strip leading star-rating prefix e.g. "★★★½ - Inception" → "Inception"
+        const rawTitle = getStdText(item, 'title').replace(/^[\s★½\d,.]+[-–—\s]+/, '').trim();
+        const link     = getStdText(item, 'link');
 
-        // Extract poster from description <img>
-        const desc    = txt('description');
-        const imgM    = desc.match(/<img[^>]+src="([^"]+)"/);
-        const poster  = imgM ? imgM[1] : null;
+        // Poster from description <img>
+        const desc   = getStdText(item, 'description');
+        const imgM   = desc.match(/<img[^>]+src="([^"]+)"/);
+        const poster = imgM ? imgM[1] : null;
 
-        // Derive slug from Letterboxd link
-        // Diary entry URLs: /username/film/inception/1/ — last segment is a number, film slug is second-to-last
-        // Film page URLs:   /username/film/inception/   — last segment is the slug
-        const parts    = link.replace(/\/$/, '').split('/').filter(Boolean);
-        const lastSeg  = parts[parts.length - 1] || '';
-        const filmSlug = /^\d+$/.test(lastSeg) ? (parts[parts.length - 2] || lastSeg) : lastSeg;
-        const slug     = filmSlug || rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        // Slug: diary URLs end in a number (/film/inception/1/) — use second-to-last segment
+        const parts   = link.replace(/\/$/, '').split('/').filter(Boolean);
+        const lastSeg = parts[parts.length - 1] || '';
+        const slug    = /^\d+$/.test(lastSeg)
+          ? (parts[parts.length - 2] || lastSeg)
+          : (lastSeg || rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
 
-        const r = isNaN(ratingRaw) ? null : ratingRaw;
+        const normalized = DATA.normalizeDate(watchedRaw);
+        if (!normalized) console.warn('[LB] missing watchedDate for:', rawTitle, '| raw:', watchedRaw);
 
         return {
-          id: slug,
-          title: rawTitle,
-          year: filmYear,
-          director: null,
-          rating: r,
-          watchedDate: DATA.normalizeDate(watchedRaw),
-          rewatch: rewatchRaw.toLowerCase() === 'yes',
-          tags: [],
-          letterboxdUrl: link,
-          tmdbId: null,
-          poster,
-          genres: [],
-          runtime: null,
-          country: null,
+          id: slug, title: rawTitle, year: filmYear, director: null,
+          rating: isNaN(ratingRaw) ? null : ratingRaw,
+          watchedDate: normalized,
+          rewatch: rewatchRaw === 'yes',
+          tags: [], letterboxdUrl: link, tmdbId: null, poster,
+          genres: [], runtime: null, country: null,
           decade: filmYear ? Math.floor(filmYear / 10) * 10 : null,
-          canon: false,
-          source: 'rss',
+          canon: false, source: 'rss',
         };
-      }).filter(e => e.title && e.watchedDate);
+      }).filter(e => {
+        if (!e.title || !e.watchedDate) {
+          console.warn('[LB] dropped entry (missing title/date):', e.title, e.watchedDate);
+          return false;
+        }
+        return true;
+      });
 
     } catch (err) {
       console.warn('[LB] poll failed', err);
@@ -4349,6 +4399,15 @@ const MG = (() => {
     setInterval(pollRSS, CFG.POLL_MS);
     updateSyncStamp();
     setInterval(updateSyncStamp, 60000);
+
+    // Force-sync button
+    document.getElementById('force-sync-btn')?.addEventListener('click', async function() {
+      this.textContent = '↻ syncing…';
+      this.disabled = true;
+      await pollRSS();
+      this.textContent = '↻ sync';
+      this.disabled = false;
+    });
   }
 
   async function pollRSS() {
