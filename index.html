@@ -2358,16 +2358,22 @@ const LB = (() => {
     let feedImage = null;
 
     try {
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=50`;
+      // NOTE: `count` param requires a paid rss2json key — omit it (free tier returns ~10 newest)
+      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
       const r = await fetch(apiUrl);
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const data = await r.json();
-      if (data.status !== 'ok') throw new Error('rss2json status: ' + data.status);
+      if (data.status !== 'ok') throw new Error('rss2json status: ' + data.status + (data.message ? ' — ' + data.message : ''));
 
       feedImage = data.feed?.image || null;
-      // Filter to diary entries only — lists/reviews have different guid prefixes
-      items = (data.items || []).filter(it => it.guid?.includes('diary'));
-      console.log(`[LB] rss2json ✓  total=${data.items?.length}  diary=${items.length}`);
+      // Diary/film-watch entries link to /film/ — lists link to /list/, so filter by link.
+      // (Letterboxd guids are letterboxd-watch-* / letterboxd-review-*, never "diary".)
+      items = (data.items || []).filter(it => (it.link || '').includes('/film/'));
+      console.log(`[LB] rss2json ✓  total=${data.items?.length}  filmWatches=${items.length}`);
+      if (data.items?.length && !items.length) {
+        console.warn('[LB] feed has items but NO film watches — only lists/reviews. ' +
+                     'Check that your Letterboxd diary is public and you logged films to the diary (not just lists).');
+      }
     } catch (e) {
       console.warn('[LB] rss2json failed:', e.message);
     }
@@ -2438,14 +2444,14 @@ const LB = (() => {
       return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : '';
     }
     return blocks.map(b => {
-      const guid = v(b, 'guid');
-      if (!guid.includes('diary')) return null;
+      const link        = v(b, 'link');
+      // Only film-watch entries (link contains /film/); skip lists/reviews-of-lists
+      if (!link.includes('/film/')) return null;
       const rawTitle    = v(b, 'title');
       const title       = stripStars(rawTitle);
       const rating      = parseRating(rawTitle);
       const watchedDate = v(b, 'watchedDate') || (() => { try { return new Date(v(b,'pubDate')).toISOString().slice(0,10); } catch { return ''; } })();
       const year        = parseInt(v(b, 'filmYear')) || parseYear(v(b, 'description')) || null;
-      const link        = v(b, 'link');
       const poster      = v(b, 'description').match(/<img[^>]+src="([^"]+)"/)?.[1] || null;
       const slug        = slugFromLink(link) || title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       return { id: slug, title, year, director: null, rating, watchedDate, rewatch: false,
