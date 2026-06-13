@@ -257,7 +257,12 @@ Also in the portfolio:
 
 ## Changelog
 
-### v1.2 (Current)
+### v1.2.1 (Current)
+- ✅ Refreshed seed data from latest Letterboxd export — now 134 films (was ~115), including recent 2026 watches
+- ✅ `SEED_VERSION` mechanism — updated seed merges into existing users' data without wiping TMDB enrichment
+- ✅ Diagnosed RSS limitation: feed only carries diary entries; watched+rated films (this account's method) aren't published to RSS
+
+### v1.2
 - ✅ `?user=handle` guest view — read-only dashboard for any Letterboxd user, namespaced storage
 - ✅ URL state for active tab (`?tab=diary` etc.) — deep-linkable, preserved across nav
 - ✅ Year in Film prose panel — auto-generated narrative summary of the current year

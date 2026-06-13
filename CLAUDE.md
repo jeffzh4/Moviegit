@@ -2,6 +2,8 @@
 
 ## Current Status: v1.2 shipped, v1.3 in planning
 
+> **Note on syncing**: Letterboxd RSS only publishes **diary** entries. The `islaby` account logs films via *watched + rated* (not diary), so its RSS feed contains only lists — zero film watches. Live RSS sync therefore yields nothing for this account; the dashboard is seeded from the CSV export (`watched.csv` + `ratings.csv` + `likes/`) baked into `SEED_DATA`. Bump `SEED_VERSION` when regenerating the seed so existing users merge in new films without losing TMDB enrichment. RSS sync code remains functional and will pick up real diary entries if any are ever logged.
+
 MovieGit is a GitHub-profile-inspired personal film dashboard. Single self-contained `index.html` — no build step, no server. Live at: https://jeffzh4.github.io/Moviegit (GitHub Pages).
 
 The core metaphor: **watching a film = a git commit.** Contribution graphs, commit-style feeds, hashes, and streaks mirror a GitHub profile — but for cinema.
