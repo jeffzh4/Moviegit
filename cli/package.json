@@ -1,0 +1,14 @@
+{
+  "name": "moviegit",
+  "version": "1.0.0",
+  "description": "git for your movies — a command line over your Letterboxd watch history",
+  "bin": { "mg": "./bin/mg.js" },
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "files": ["bin", "src", "README.md"],
+  "keywords": ["letterboxd", "cli", "film", "movies", "git", "moviegit"],
+  "license": "MIT",
+  "author": "Jeffrey Zhang",
+  "repository": { "type": "git", "url": "https://github.com/jeffzh4/Moviegit.git" },
+  "dependencies": {}
+}

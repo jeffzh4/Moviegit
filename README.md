@@ -41,6 +41,7 @@ The core metaphor, taken all the way: MovieGit ships a working **command line**,
 - [Highlights](#highlights)
 - [The Dashboard](#the-dashboard)
 - [The mg Terminal](#the-mg-terminal)
+- [The mg CLI (your real terminal)](#the-mg-cli-your-real-terminal)
 - [How Sync Works](#how-sync-works)
 - [Architecture](#architecture)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
@@ -171,7 +172,44 @@ working tree clean
 | `config [theme dark\|light]` | View or set dashboard config |
 | `help` · `clear` · `exit` | Builtins |
 
-> **On `push`:** Letterboxd has no public write API, so `push` exports locally rather than writing back. See [Logging from your own terminal](#faq) for how a thin CLI wrapper *could* close that loop.
+> **On `push`:** Letterboxd has no public write API, so `push` exports locally rather than writing back. The [`mg` CLI](#the-mg-cli-your-real-terminal) closes that loop from your own shell.
+
+---
+
+## The mg CLI (your real terminal)
+
+The same commands, outside the browser. A zero-dependency Node package lives in [`cli/`](cli/):
+
+```bash
+npm install -g moviegit
+
+mg login islaby --tmdb-key <key>
+mg status
+mg log 20
+mg blame prestige
+mg merge someuser
+```
+
+Reads are public and need no authentication — the CLI hits Letterboxd directly, so
+no CORS proxy is involved. Commit hashes match the dashboard exactly, so a hash in
+your terminal is the same hash in the browser.
+
+**Logging films from the shell:**
+
+```bash
+mg commit "Sinners" --year 2025 --rating 4.5
+mg commit "Weapons" --rating 4 --liked --date 2026-06-02
+```
+
+Writes use *your own* Letterboxd session cookie (never your password), stored locally
+at `~/.config/moviegit/` with `0600` permissions. Because Letterboxd publishes no write
+API, this path drives the site's own logging form and is explicitly unofficial — it
+verifies each response and fails loudly rather than faking success. Once a film is
+logged, it flows back into the web dashboard on the next sync: **Letterboxd is the
+shared remote, the terminal and browser are two working copies.**
+
+See [`cli/README.md`](cli/README.md) for the full command reference, the auth flow,
+and known limits.
 
 ---
 
@@ -270,7 +308,11 @@ Once loaded and cached, yes — the dashboard renders from `localStorage`. Sync 
 
 ## Changelog
 
-### v1.4 (Current)
+### v1.5 (Current)
+- **`mg` CLI** — a real, installable command line (`npm install -g moviegit`), zero dependencies, Node 18+. Read commands need no authentication; `mg commit` logs films to Letterboxd from your shell using your own session cookie. Commit hashes match the dashboard.
+- **Icons are now inline SVG** — the Tabler icon webfont CDN had started 404ing, silently blanking every icon in the UI. Replaced with a self-contained sprite, so the dashboard is genuinely dependency-free and the header buttons visibly signal what they do.
+
+### v1.4
 - **`mg` terminal** — a real command line over your watch history (`` ` `` or the header terminal button). **28 git-style commands**: `status` `log` `commit` `pull` `fetch` `push` `show` `grep` `diff` `shortlog` `contributors` `streak` `tag` `branch` `checkout` `stash` `revert` `blame` `remote` `reflog` `clone` `merge` `cherry-pick` `rebase` `wrapped` `bisect` `gc` `config` — plus `help`/`clear`/`exit`.
 - `mg blame` traces *why* a rating happened; `mg merge <user>` scores taste compatibility against another account; `mg bisect` finds your taste-shifting film.
 - **Poster fix** — removed the enrichment cap that left later films blank, added a 24h negative-cache for films missing from TMDB, upgraded posters to higher resolution (w342) with a one-time migration.

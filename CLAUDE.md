@@ -1,6 +1,6 @@
 # MovieGit — Project Context for Claude
 
-## Current Status: v1.4 shipped (mg terminal — 28 git commands, GitHub-esque UI polish), v1.5 in planning
+## Current Status: v1.5 shipped (mg CLI npm package + inline SVG icons), v1.6 in planning
 
 > **Note on syncing** (v1.3, the real fix): Letterboxd RSS only publishes **diary** entries. The `islaby` account logs films via *watched + rated* (no diary, no review), so its RSS feed is permanently empty of film watches — RSS sync is a dead end for this usage. **Live sync now scrapes the profile films grid** (`https://letterboxd.com/{user}/films/`) instead. That page lists every watched film with its star rating (`rated-N`, N/2 = stars), newest-watched first, and updates the instant a film is rated + marked watched. It is fetched through a CORS proxy (`allorigins.win/raw` primary, `cors.eu.org` fallback — both verified against Letterboxd; rss2json and corsproxy.io do **not** work for this HTML). The films page has no per-film date, so newly-discovered films get the poll date as `watchedDate` ("commit today" semantics); films already in history keep their real CSV date (poll reuses it, so re-polls upgrade ratings in place without duplicating rows). `SEED_DATA` (from `watched.csv` + `ratings.csv` + `likes/`) still provides the full backfilled history with real dates; bump `SEED_VERSION` when regenerating it. **Enrichment race fix**: `TMDB.enrichBatch` overlays enriched entries onto the latest stored history rather than clobbering with its stale snapshot, so concurrent poll additions survive.
 
@@ -14,7 +14,7 @@ The core metaphor: **watching a film = a git commit.** Contribution graphs, comm
 
 - **GitHub**: https://github.com/jeffzh4/Moviegit
 - **Hosting**: GitHub Pages (`main` branch, root)
-- **Files that ship**: `index.html`, `favicon-tv-b.svg`, `README.md`
+- **Files that ship**: `index.html`, `favicon-tv-b.svg`, `README.md`, `cli/` (npm package `moviegit`)
 - **Files that don't ship**: `data.zip`, `lbdata/`, `moviegit_dashboard_template.html`, `CLAUDE.md`
 
 > **On every commit**: update `README.md` changelog and this file's "Current Status" line if anything significant changed.
@@ -193,6 +193,23 @@ UI        — tab switching, theme toggle, modal, keyboard shortcuts
 MG        — bootstrap + pollRSS loop + updateSyncStamp + recordReflog; exports pollRSS
 MGSH      — the mg terminal: drawer UI + 28 git-style commands
 ```
+
+### Icons (v1.5)
+The Tabler icons webfont CDN **404s** — every `<i class="ti ti-*">` rendered blank.
+Icons are now an inline `<svg><defs><symbol>` sprite at the top of `<body>`, used via
+`<svg class="ic"><use href="#i-NAME"/></svg>`. `.ic` sets `width/height:1em` and
+`stroke:currentColor`. Dynamic swaps (theme toggle, toast) set the `<use>` `href`,
+NOT `className`. Never reintroduce the webfont.
+
+### mg CLI (v1.5) — `cli/`
+Zero-dependency Node 18+ ESM package, `bin/mg.js` + `src/{config,letterboxd,tmdb,auth,format,commands}.js`.
+Reads hit Letterboxd directly (no CORS proxy needed server-side). Config in `~/.config/moviegit/` (0600).
+**Letterboxd blocks non-browser clients on**: `/films/page/N/` for N>1 (403) and `/search/` (403).
+So reads cap at 72 films (flagged `truncated`, surfaced to the user) and `commit` resolves slugs by
+slugify+verify against `/film/<slug>/` (use `--year`/`--slug` to disambiguate).
+Film id parses from `"uid":"film:<id>"`; CSRF from `CSRF = '<hex>'` in page JS.
+Writes use a user-supplied `letterboxd.signed.in.as` cookie — **never a password**. Write path is
+unofficial (drives the site's save-diary-entry form) and reports failure rather than assuming success.
 
 ### mg terminal (v1.4)
 Bottom drawer, toggled by backtick or the terminal header button (`#mgsh-btn`). Commands registry in `MGSH.CMDS`.
