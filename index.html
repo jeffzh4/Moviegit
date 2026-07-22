@@ -129,24 +129,27 @@
       gap: 1px;
     }
 
+    /* GitHub repo-nav: underline-on-active, no pill fill */
     .mg-nav a {
       display: flex; align-items: center; gap: 6px;
-      padding: 6px 13px;
+      padding: 8px 12px 10px;
       font-size: 12px;
       color: var(--text-secondary);
       text-decoration: none;
-      border-radius: var(--r-md);
-      border: 1px solid transparent;
+      border-radius: var(--r-md) var(--r-md) 0 0;
+      border-bottom: 2px solid transparent;
       cursor: pointer;
       white-space: nowrap;
-      transition: color .12s, background .12s;
+      transition: color .12s, background .12s, border-color .12s;
     }
 
     .mg-nav a:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+    .mg-nav a:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: -2px; }
     .mg-nav a.active {
       color: var(--text-primary);
-      background: var(--bg-primary);
-      border-color: var(--border);
+      font-weight: 600;
+      border-bottom-color: var(--accent-orange);
+      background: transparent;
     }
 
     .mg-nav a i { font-size: 14px; }
@@ -172,8 +175,42 @@
       transition: color .12s, background .12s;
     }
 
-    .icon-btn:hover { color: var(--text-primary); background: var(--bg-overlay); }
+    .icon-btn:hover { color: var(--text-primary); background: var(--bg-overlay); border-color: var(--border-muted); }
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--accent-blue); outline-offset: 2px;
+      color: var(--text-primary);
+    }
     .icon-btn i { font-size: 16px; }
+
+    /* GitHub-style tooltip (appears below on hover/focus) */
+    .tipped { position: relative; }
+    .tipped::after {
+      content: attr(data-tip);
+      position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      background: var(--bg-overlay); color: var(--text-primary);
+      border: 1px solid var(--border-muted); border-radius: var(--r-md);
+      padding: 4px 8px; font-size: 11px; line-height: 1.4; white-space: nowrap;
+      letter-spacing: .02em; box-shadow: 0 4px 14px rgba(0,0,0,.4);
+      opacity: 0; visibility: hidden; transform: translateX(-50%) translateY(-3px);
+      transition: opacity .14s ease, transform .14s ease; pointer-events: none; z-index: 60;
+    }
+    .tipped::before {
+      content: ""; position: absolute; top: calc(100% + 2px); left: 50%;
+      transform: translateX(-50%); border: 5px solid transparent;
+      border-bottom-color: var(--border-muted);
+      opacity: 0; visibility: hidden; transition: opacity .14s ease; z-index: 61;
+    }
+    .tipped:hover::after, .tipped:focus-visible::after {
+      opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+    }
+    .tipped:hover::before, .tipped:focus-visible::before { opacity: 1; visibility: visible; }
+    /* tooltips anchored to the right edge flip leftward so they don't clip off-screen */
+    .tipped.tip-left::after { left: auto; right: 0; transform: translateX(0) translateY(-3px); }
+    .tipped.tip-left:hover::after, .tipped.tip-left:focus-visible::after { transform: translateX(0) translateY(0); }
+    .tipped.tip-left::before { left: auto; right: 8px; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .tipped::after, .tipped::before { transition: none; }
+    }
 
     /* ── Body grid ── */
     .mg-body {
@@ -1681,16 +1718,16 @@
     </nav>
 
     <div class="mg-header-right">
-      <button class="icon-btn" id="mgsh-btn" aria-label="Open mg terminal" title="mg terminal (`)">
+      <button class="icon-btn tipped" id="mgsh-btn" aria-label="Open mg terminal" data-tip="mg terminal &nbsp;·&nbsp; `">
         <i class="ti ti-terminal-2"></i>
       </button>
-      <button class="icon-btn" id="share-btn" aria-label="Share dashboard" title="Share this dashboard">
+      <button class="icon-btn tipped" id="share-btn" aria-label="Share dashboard" data-tip="Share dashboard">
         <i class="ti ti-share"></i>
       </button>
-      <button class="icon-btn" id="about-btn" aria-label="About MovieGit">
+      <button class="icon-btn tipped" id="about-btn" aria-label="About MovieGit" data-tip="About MovieGit">
         <i class="ti ti-help-circle"></i>
       </button>
-      <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme">
+      <button class="icon-btn tipped tip-left" id="theme-toggle" aria-label="Toggle light/dark theme" data-tip="Toggle theme">
         <i class="ti ti-moon" id="theme-icon"></i>
       </button>
     </div>
@@ -2478,7 +2515,16 @@ const LB = (() => {
     });
   }
 
-  return { poll };
+  // Fetch another user's watched films (title/year/rating rows only) — powers
+  // `mg merge <user>` and `mg cherry-pick <user> <film>`.
+  async function fetchUserFilms(username) {
+    const u = (username || '').replace(/[^\w-]/g, '');
+    if (!u) return null;
+    const html = await fetchHTML(`https://letterboxd.com/${u}/films/`);
+    return html ? parseFilms(html) : null;
+  }
+
+  return { poll, fetchUserFilms };
 })();
 
 /* ============================================================
@@ -4484,21 +4530,31 @@ const MG = (() => {
     });
   }
 
+  // Append a sync event to the reflog (capped at 40) — powers `mg reflog`.
+  function recordReflog(scanned, added) {
+    try {
+      const log = JSON.parse(localStorage.getItem('mg_reflog') || '[]');
+      log.unshift({ at: new Date().toISOString(), scanned, added });
+      localStorage.setItem('mg_reflog', JSON.stringify(log.slice(0, 40)));
+    } catch {}
+  }
+
   async function pollRSS() {
     const current = STORE.getHistory();
     const entries = await LB.poll(current);
-    if (!entries.length) { STORE.setLastPoll(); updateSyncStamp(); return; }
+    if (!entries.length) { STORE.setLastPoll(); updateSyncStamp(); recordReflog(0, 0); return; }
 
     const merged  = DATA.merge(current, entries);
-    if (merged.length > current.length) {
-      const n = merged.length - current.length;
+    const added   = merged.length - current.length;
+    if (added > 0) {
       STORE.setHistory(merged);
       STORE.setLastPoll();
       renderActiveTab(merged);
-      UI.toast(`${n} new entr${n > 1 ? 'ies' : 'y'} from Letterboxd`, 'success');
+      UI.toast(`${added} new entr${added > 1 ? 'ies' : 'y'} from Letterboxd`, 'success');
     } else {
       STORE.setLastPoll();
     }
+    recordReflog(entries.length, added);
     updateSyncStamp();
   }
 
@@ -4867,6 +4923,171 @@ const MGSH = (() => {
       if (!u) return err('usage: clone &lt;letterboxd username&gt;');
       ok(`cloning ${esc(u)}…`);
       setTimeout(() => { window.location.search = `?user=${u}`; }, 400);
+    }},
+
+    streak: { use: 'streak', desc: 'current + longest watch streaks', fn() {
+      const days = [...new Set(hist().map(e => e.watchedDate))].filter(Boolean).sort();
+      if (!days.length) return dim('no watches yet');
+      let longest = 1, run = 1, lEnd = days[0];
+      for (let i = 1; i < days.length; i++) {
+        const gap = (new Date(days[i]) - new Date(days[i - 1])) / 86400000;
+        run = gap === 1 ? run + 1 : 1;
+        if (run > longest) { longest = run; lEnd = days[i]; }
+      }
+      const cur = streakDays();
+      print(`current streak:  <span class="sh-star">${cur}</span> day${cur === 1 ? '' : 's'}`);
+      print(`longest streak:  <span class="sh-star">${longest}</span> days <span class="sh-dim">(ended ${lEnd})</span>`);
+      print(`active days:     ${days.length} <span class="sh-dim">/ ${Math.round((new Date(days[days.length-1]) - new Date(days[0]))/86400000)+1} span</span>`);
+    }},
+
+    contributors: { use: 'contributors', desc: 'directors ranked by contribution share', fn() {
+      const by = {}; const total = hist().filter(e => e.director).length;
+      hist().forEach(e => { if (e.director) by[e.director] = (by[e.director] || 0) + 1; });
+      const rows = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 15);
+      if (!rows.length) return dim('no director data yet (enrichment pending)');
+      const max = rows[0][1];
+      rows.forEach(([d, n]) => {
+        const bar = '█'.repeat(Math.round(n / max * 16)).padEnd(16, '░');
+        print(`<span class="sh-accent">${bar}</span> ${String(n).padStart(3)}  <span class="sh-dim">${(n/total*100).toFixed(0)}%</span>  ${esc(d)}`);
+      });
+      dim(`${Object.keys(by).length} directors · ${total} credited films`);
+    }},
+
+    wrapped: { use: 'wrapped [year]', desc: 'year-in-review card', fn(a) {
+      const y = a[0] && /^\d{4}$/.test(a[0]) ? a[0] : String(new Date().getFullYear());
+      const s = yearStats(y);
+      if (!s.count) return dim(`no films logged in ${y}`);
+      const rated = s.films.filter(e => e.rating != null).sort((x, y2) => y2.rating - x.rating);
+      const topDir = Object.entries(s.films.reduce((m, e) => { if (e.director) m[e.director] = (m[e.director]||0)+1; return m; }, {})).sort((a2, b) => b[1] - a2[1])[0];
+      print(`<span class="sh-cmd">━━ MovieGit Wrapped ${y} ━━</span>`);
+      print(`${s.count} films · ${s.hours}h · ${Math.round(s.hours/24*10)/10} days of cinema`);
+      if (s.avg != null) print(`avg rating: <span class="sh-star">★${s.avg.toFixed(2)}</span>`);
+      if (rated[0]) print(`top film: ${esc(rated[0].title)} ${stars(rated[0].rating)}`);
+      if (topDir) print(`top director: ${esc(topDir[0])} <span class="sh-dim">(${topDir[1]} films)</span>`);
+      print(`top genres: <span class="sh-dim">${s.topG.map(g => g[0]).join(' · ') || '—'}</span>`);
+      print(`new directors discovered: ${s.dirs.size}`);
+    }},
+
+    reflog: { use: 'reflog', desc: 'sync history: every poll + what it found', fn() {
+      let log = [];
+      try { log = JSON.parse(localStorage.getItem('mg_reflog') || '[]'); } catch {}
+      if (!log.length) return dim("no syncs recorded yet — run 'pull'");
+      log.slice(0, 20).forEach((r, i) => {
+        const when = new Date(r.at);
+        const ago = Math.round((Date.now() - when) / 60000);
+        const tag = r.added > 0 ? `<span class="sh-ok">+${r.added}</span>` : '<span class="sh-dim">—</span>';
+        print(`<span class="sh-hash">poll@{${i}}</span>  ${when.toISOString().slice(0,16).replace('T',' ')}  <span class="sh-dim">${ago}m ago</span>  scanned ${r.scanned} ${tag}`);
+      });
+    }},
+
+    gc: { use: 'gc', desc: 'housekeeping: prune orphan cache, report storage', fn() {
+      const ids = new Set(hist().map(e => e.tmdbId).filter(Boolean));
+      const cache = STORE.getTmdb();
+      let pruned = 0;
+      Object.keys(cache).forEach(k => { if (!ids.has(Number(k))) { delete cache[k]; pruned++; } });
+      localStorage.setItem('mg_tmdb_cache', JSON.stringify(cache));
+      let bytes = 0;
+      for (const k in localStorage) if (k.startsWith('mg_')) bytes += (localStorage[k] || '').length;
+      dim(`pruning orphan TMDB cache entries…`);
+      ok(`${pruned} orphan${pruned === 1 ? '' : 's'} removed`);
+      const misses = hist().filter(e => e.tmdbMiss).length;
+      if (misses) dim(`${misses} film(s) not on TMDB (retried daily)`);
+      print(`storage: <span class="sh-accent">${(bytes / 1024).toFixed(1)} KB</span> across mg_* keys`);
+    }},
+
+    config: { use: 'config [theme dark|light]', desc: 'view / set dashboard config', fn(a) {
+      if (!a.length) {
+        print(`user      <span class="sh-accent">${esc(CFG.USERNAME)}</span>`);
+        print(`theme     ${esc(document.documentElement.getAttribute('data-theme') || 'dark')}`);
+        print(`poll      every ${CFG.POLL_MS / 60000}m`);
+        print(`origin    letterboxd.com/${esc(CFG.USERNAME)}/films/`);
+        return dim("set theme with: config theme light  ·  switch account: clone &lt;user&gt;");
+      }
+      if (a[0] === 'theme' && ['dark', 'light'].includes(a[1])) {
+        document.getElementById('theme-toggle')?.click();
+        // click toggles; ensure we land on requested value
+        if ((document.documentElement.getAttribute('data-theme') || 'dark') !== a[1]) document.getElementById('theme-toggle')?.click();
+        return ok(`theme → ${a[1]}`);
+      }
+      err('usage: config  ·  config theme dark|light');
+    }},
+
+    rebase: { use: 'rebase <year>', desc: 'replay a year month-by-month', fn(a) {
+      const y = a[0];
+      if (!/^\d{4}$/.test(y || '')) return err('usage: rebase 2025');
+      const f = hist().filter(e => (e.watchedDate || '').startsWith(y));
+      if (!f.length) return dim(`no commits in ${y}`);
+      const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const by = {};
+      f.forEach(e => { const m = parseInt(e.watchedDate.slice(5, 7)) - 1; (by[m] = by[m] || []).push(e); });
+      print(`<span class="sh-cmd">rebase ${y}</span> <span class="sh-dim">(${f.length} commits)</span>`);
+      Object.keys(by).map(Number).sort((x, z) => x - z).forEach(m => {
+        const films = by[m];
+        const rated = films.filter(e => e.rating != null);
+        const avg = rated.length ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1) : '—';
+        const top = films.slice().sort((x, z) => (z.rating || 0) - (x.rating || 0))[0];
+        print(`<span class="sh-accent">${M[m]}</span>  ${String(films.length).padStart(2)} films  <span class="sh-star">★${avg}</span>  <span class="sh-dim">top: ${esc(top.title)}</span>`);
+      });
+    }},
+
+    bisect: { use: 'bisect [genre]', desc: 'find the film that shifted your taste', fn(a) {
+      const genre = a.join(' ').toLowerCase();
+      let f = hist().filter(e => e.rating != null).slice()
+        .sort((x, z) => x.watchedDate.localeCompare(z.watchedDate));
+      if (genre) f = f.filter(e => (e.genres || []).some(g => g.toLowerCase() === genre));
+      if (f.length < 6) return dim('not enough rated films' + (genre ? ' in that genre' : ''));
+      let best = null;
+      for (let i = 2; i < f.length - 2; i++) {
+        const before = f.slice(0, i), after = f.slice(i);
+        const avgB = before.reduce((s, e) => s + e.rating, 0) / before.length;
+        const avgA = after.reduce((s, e) => s + e.rating, 0) / after.length;
+        const delta = Math.abs(avgA - avgB);
+        if (!best || delta > best.delta) best = { film: f[i], delta, avgB, avgA };
+      }
+      print(`<span class="sh-cmd">bisecting ${f.length} ${esc(genre || 'rated')} films…</span>`);
+      print(`<span class="sh-ok">▸ pivot:</span> ${hash(best.film)} ${esc(best.film.title)} <span class="sh-dim">(${best.film.watchedDate})</span>`);
+      print(`avg before: <span class="sh-star">★${best.avgB.toFixed(2)}</span> → after: <span class="sh-star">★${best.avgA.toFixed(2)}</span>  <span class="${best.avgA>=best.avgB?'sh-ok':'sh-err'}">${best.avgA>=best.avgB?'+':''}${(best.avgA-best.avgB).toFixed(2)}</span>`);
+      dim('the watch after which your ratings shifted most');
+    }},
+
+    merge: { use: 'merge <user>', desc: 'taste compatibility with another user', async fn(a) {
+      const u = (a[0] || '').replace(/[^\w-]/g, '');
+      if (!u) return err('usage: merge &lt;letterboxd user&gt;');
+      dim(`fetching ${esc(u)}/films/ …`);
+      const rows = await LB.fetchUserFilms(u);
+      if (!rows) return err(`could not reach ${esc(u)}'s films (private or proxy down)`);
+      const mine = new Map(hist().filter(e => e.rating != null).map(e => [`${e.title.toLowerCase()}|${e.year}`, e.rating]));
+      const shared = [];
+      rows.forEach(r => { const k = `${r.title.toLowerCase()}|${r.year}`; if (mine.has(k) && r.rating != null) shared.push({ t: r.title, mine: mine.get(k), theirs: r.rating }); });
+      if (!shared.length) return dim(`no shared rated films with ${esc(u)}`);
+      const overlapAll = rows.filter(r => mine.has(`${r.title.toLowerCase()}|${r.year}`)).length;
+      const meanDiff = shared.reduce((s, x) => s + Math.abs(x.mine - x.theirs), 0) / shared.length;
+      const compat = Math.max(0, Math.round((1 - meanDiff / 4.5) * 100));
+      print(`<span class="sh-cmd">merge ${esc(CFG.USERNAME)} ← ${esc(u)}</span>`);
+      print(`${overlapAll} films both watched · ${shared.length} both rated`);
+      print(`taste compatibility: <span class="${compat>=70?'sh-ok':compat>=45?'sh-star':'sh-err'}">${compat}%</span> <span class="sh-dim">(mean Δ ${meanDiff.toFixed(2)}★)</span>`);
+      const conflicts = shared.filter(x => Math.abs(x.mine - x.theirs) >= 2).sort((p, q) => Math.abs(q.mine - q.theirs) - Math.abs(p.mine - p.theirs));
+      if (conflicts.length) {
+        print(`<span class="sh-err">merge conflicts</span> (rated ≥2★ apart):`);
+        conflicts.slice(0, 6).forEach(x => print(`  ${esc(x.t)}  <span class="sh-star">you ★${x.mine}</span> <span class="sh-dim">vs ${esc(u)} ★${x.theirs}</span>`));
+      } else ok('no merge conflicts — aligned taste');
+    }},
+
+    'cherry-pick': { use: 'cherry-pick <user> <film>', desc: 'grab a film off another profile → stash', async fn(a) {
+      const u = (a[0] || '').replace(/[^\w-]/g, '');
+      const q = a.slice(1).join(' ').toLowerCase();
+      if (!u || !q) return err('usage: cherry-pick &lt;user&gt; &lt;film&gt;');
+      dim(`fetching ${esc(u)}/films/ …`);
+      const rows = await LB.fetchUserFilms(u);
+      if (!rows) return err(`could not reach ${esc(u)}'s films`);
+      const hit = rows.find(r => r.title.toLowerCase() === q) || rows.find(r => r.title.toLowerCase().includes(q));
+      if (!hit) return err(`${esc(u)} hasn't logged anything matching '${esc(q)}'`);
+      const st = getStash();
+      if (st.some(s => s.title.toLowerCase() === hit.title.toLowerCase())) return dim('already in your stash');
+      st.unshift({ title: hit.title, added: new Date().toISOString().slice(0, 10), from: u });
+      writeK('mg_stash', st);
+      ok(`cherry-picked ${esc(hit.title)} (${hit.year || '—'}) from ${esc(u)} → stash`);
+      dim(`${esc(u)} rated it ${hit.rating != null ? '★' + hit.rating : 'unrated'} · 'stash list' to view`);
     }},
   };
 

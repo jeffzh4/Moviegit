@@ -1,6 +1,6 @@
 # MovieGit — Project Context for Claude
 
-## Current Status: v1.4 shipped (mg terminal — 18 git commands), v1.5 in planning
+## Current Status: v1.4 shipped (mg terminal — 28 git commands, GitHub-esque UI polish), v1.5 in planning
 
 > **Note on syncing** (v1.3, the real fix): Letterboxd RSS only publishes **diary** entries. The `islaby` account logs films via *watched + rated* (no diary, no review), so its RSS feed is permanently empty of film watches — RSS sync is a dead end for this usage. **Live sync now scrapes the profile films grid** (`https://letterboxd.com/{user}/films/`) instead. That page lists every watched film with its star rating (`rated-N`, N/2 = stars), newest-watched first, and updates the instant a film is rated + marked watched. It is fetched through a CORS proxy (`allorigins.win/raw` primary, `cors.eu.org` fallback — both verified against Letterboxd; rss2json and corsproxy.io do **not** work for this HTML). The films page has no per-film date, so newly-discovered films get the poll date as `watchedDate` ("commit today" semantics); films already in history keep their real CSV date (poll reuses it, so re-polls upgrade ratings in place without duplicating rows). `SEED_DATA` (from `watched.csv` + `ratings.csv` + `likes/`) still provides the full backfilled history with real dates; bump `SEED_VERSION` when regenerating it. **Enrichment race fix**: `TMDB.enrichBatch` overlays enriched entries onto the latest stored history rather than clobbering with its stale snapshot, so concurrent poll additions survive.
 
@@ -186,20 +186,20 @@ Tabs: **overview · diary · stats · canon**
 CFG       — config: username, TMDB key (obfuscated), poll interval
 STORE     — localStorage read/write helpers
 DATA      — parse CSV, merge entries, dedup by {id, watchedDate}
-LB        — Letterboxd RSS poll (via allorigins.win), avatar extraction
-TMDB      — lazy enrichment: search → details → credits, batched
-RENDER    — all view renderers (overview, diary, stats, canon)
+LB        — Letterboxd sync: films-grid scrape + CORS-proxy chain; fetchUserFilms(user) for merge/cherry-pick
+TMDB      — lazy enrichment: search → details → credits, batched (no cap; 24h negative-cache for misses)
+RENDER    — all view renderers (overview, diary, stats, canon) + mgHash (exported)
 UI        — tab switching, theme toggle, modal, keyboard shortcuts
-MG        — bootstrap + pollRSS loop + updateSyncStamp
-MGSH      — the mg terminal: drawer UI + 18 git-style commands
+MG        — bootstrap + pollRSS loop + updateSyncStamp + recordReflog; exports pollRSS
+MGSH      — the mg terminal: drawer UI + 28 git-style commands
 ```
 
 ### mg terminal (v1.4)
-Bottom drawer, toggled by backtick or the `>_` header button. Commands registry in `MGSH.CMDS`.
-Implemented: status, log, commit, pull, fetch, push, show, grep, diff, shortlog, tag, branch, checkout, stash, revert, blame, remote, clone (+ help/clear/exit builtins).
-State keys: `mg_branches` (name → film ids), `mg_head` (active branch or null), `mg_stash` (watchlist array).
-`log` is scoped to the checked-out branch. `commit` adds a manual entry (source:'manual') and enriches it. `push` downloads enriched JSON (Letterboxd has no write API). `clone <user>` navigates to `?user=`.
-Note: literal `<...>` in terminal output must be entity-escaped — print() uses innerHTML.
+Bottom drawer, toggled by backtick or the terminal header button (`#mgsh-btn`). Commands registry in `MGSH.CMDS`.
+**28 commands**: status, log, commit, pull, fetch, push, show, grep, diff, shortlog, contributors, streak, tag, branch, checkout, stash, revert, blame, remote, reflog, clone, merge, cherry-pick, rebase, wrapped, bisect, gc, config (+ help/clear/exit builtins).
+State keys: `mg_branches` (name → film ids), `mg_head` (active branch or null), `mg_stash` (watchlist array), `mg_reflog` (last 40 poll events).
+`log` is scoped to the checked-out branch. `commit` adds a manual entry (source:'manual') and enriches it. `push` downloads enriched JSON (Letterboxd has no write API). `merge`/`cherry-pick` fetch another user's films grid via `LB.fetchUserFilms`. `clone <user>` navigates to `?user=`.
+Note: literal `<...>` in terminal output MUST be entity-escaped (`&lt;`/`&gt;`) — print() uses innerHTML. This is an easy-to-miss bug in help text and usage strings.
 
 ---
 

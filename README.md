@@ -1,326 +1,303 @@
 <p align="center">
-  <img src="favicon-tv-b.svg" alt="MovieGit" width="80" height="80">
+  <img src="favicon-tv-b.svg" alt="MovieGit" width="88" height="88">
 </p>
 
 <h1 align="center">MovieGit</h1>
 
 <p align="center">
-  A GitHub-profile-inspired personal film dashboard. Watch history, ratings, and streaks — visualized like a developer profile.
+  <em>Your film history, as a developer profile.</em><br>
+  A GitHub-inspired dashboard for Letterboxd — contribution graphs, commit-style diaries, and a built-in <code>mg</code> terminal.
 </p>
 
 <p align="center">
-  <strong><a href="https://jeffzh4.github.io/Moviegit">View Live</a></strong> · <strong><a href="https://letterboxd.com/islaby/">Open in Letterboxd</a></strong>
+  <a href="https://jeffzh4.github.io/Moviegit"><strong>View Live</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://letterboxd.com/islaby/"><strong>Letterboxd</strong></a>
+  &nbsp;·&nbsp;
+  <a href="#the-mg-terminal"><strong>The mg Terminal</strong></a>
+</p>
+
+<p align="center">
+  <img alt="Single file" src="https://img.shields.io/badge/build-zero--config-22C55E?style=flat-square">
+  <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-CDN--only-1E293B?style=flat-square">
+  <img alt="Backend" src="https://img.shields.io/badge/backend-none-334155?style=flat-square">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
 </p>
 
 ---
 
-A GitHub-profile-inspired personal film dashboard that visualizes your watch history, ratings, and activity patterns in the language of a developer. Rather than a traditional review site, MovieGit reimagines cinema through the lens of version control — watching a film becomes a commit, streaks become contribution patterns, and your taste is measured in data.
+## Overview
+
+**MovieGit** reimagines your film-watching history through the visual language of a GitHub profile. Watching a film is a **commit**. A run of daily watches is a **contribution streak**. Your diary is a **commit log**, complete with deterministic hashes. Your favorite films are **canon**, pinned like starred repositories.
+
+It is a single, self-contained `index.html` — **no build step, no server, no tracking**. It reads a public Letterboxd account, enriches each film with poster/director/genre data from TMDB, and renders the whole thing client-side. Everything persists in your browser's `localStorage`.
+
+The core metaphor, taken all the way: MovieGit ships a working **command line**, `mg`, with 28 git-style commands that operate over your watch history — `mg log`, `mg commit`, `mg diff 2024 2025`, `mg blame <film>`, `mg merge <user>`, and more.
 
 ---
 
-## The Idea
+## Table of Contents
 
-Why MovieGit? Because you measure code in commits, lines changed, and contribution history. Why not measure cinema the same way?
-
-MovieGit takes your Letterboxd watch history and visualizes it through the GitHub profile aesthetic:
-- **Contribution graph** → Films watched per day, colored by intensity
-- **`mg log`** → Terminal-style diary: every film as a commit hash + one-liner
-- **Streak stats** → Current and longest watch streaks
-- **Taste drift** → Year-over-year diff of your avg rating, genre mix, and new directors
-- **Director completion** → Filmography coverage % for your most-watched directors
-- **Activity metrics** → Average rating, total watch time, films this month, rewatches
-- **Hottest takes** → Films where you diverge most from TMDB consensus
-
-It's a personal portfolio piece that celebrates cinema data, not a social platform. Everything lives client-side, fully in your browser.
+- [Highlights](#highlights)
+- [The Dashboard](#the-dashboard)
+- [The mg Terminal](#the-mg-terminal)
+- [How Sync Works](#how-sync-works)
+- [Architecture](#architecture)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Self-Hosting](#self-hosting)
+- [Multi-User & Sharing](#multi-user--sharing)
+- [FAQ](#faq)
+- [Changelog](#changelog)
 
 ---
 
-## Features
+## Highlights
+
+- **Contribution graph** — a 52-week heatmap of everything you watched, colored by intensity, with per-day film tooltips and milestone markers.
+- **Live sync from Letterboxd** — rate a film on Letterboxd and it appears here within minutes. No diary entry, no review, no manual export required (see [How Sync Works](#how-sync-works)).
+- **15-panel stats view** — decades, directors, taste DNA, taste drift, blind spots, hidden discoveries, director-filmography completion, and more.
+- **The `mg` terminal** — a genuine git-flavored shell over your data. 28 commands.
+- **TMDB enrichment** — posters, directors, genres, runtimes, and consensus ratings, fetched lazily and cached.
+- **GitHub-faithful design** — dark by default, monospace throughout, underline nav, tooltips, focus rings, light/dark toggle.
+- **Fully client-side** — one HTML file, CDN-only dependencies, works offline once cached.
+
+---
+
+## The Dashboard
 
 ### Overview
-- **Contribution graph** — 52-week heatmap of watch activity (films/day colored 0–4)
-- **Live sync timestamp** — "Last synced X min ago" on the graph, auto-refreshes
-- **Metrics cards** — Avg rating, total watch time, films this month, rewatches
-- **Hottest takes callout** — Top 3 films with biggest divergence from TMDB consensus
-- **Recent activity feed** — Last 7 diary entries styled as git commits
-- **Sidebar** — Avatar (pulled live from Letterboxd RSS), stat tiles, genre bars with avg rating sparklines, member since date
+- **52-week contribution graph** — films watched per day as a GitHub-style heatmap (5 intensity levels). Hover any cell for the film titles logged that day. Gold milestone markers appear at your 50th / 100th / 250th / 500th film.
+- **"Last synced" indicator** with a manual **↻ sync** button.
+- **Metric cards** — average rating, total watch time, films this month, rewatches.
+- **Hottest takes** — the three films where your rating diverges most from TMDB consensus.
+- **Recent activity feed** — your latest watches, styled as git commits.
+- **Sidebar** — avatar (pulled live from Letterboxd), stat tiles, top-genre bars with average-rating sparklines, and member-since date.
 
 ### Diary
-- Chronological list of every logged film, paginated (25/page)
-- **Filters**: by year, genre, rating, canon toggle
-- **Search**: fuzzy title search (keyboard shortcut: `/`)
-- **`mg log` terminal view**: toggle to a monospace commit-log aesthetic — `[7-char hash]  [date]  [title (year)]  [★★★]  — Director` — with rewatch/canon badge chips. Hash is deterministic (FNV-1a from title+year), reproducible across sessions.
+- Full watch history, paginated (25/page), newest first.
+- **Filters** — by year, genre, rating, and a canon-only toggle.
+- **Fuzzy search** across titles (press `/` from anywhere).
+- **`mg log` view** — a terminal-style toggle rendering every film as
+  `[hash]  [date]  [title (year)]  [★★★]  — Director`, with rewatch/canon badges. The 7-character hash is a deterministic FNV-1a of title + year, stable across sessions.
 
 ### Stats (15 panels)
-- **By decade** — Bar chart of films watched per decade
-- **Top directors** — Most-watched directors + avg rating
-- **Rating timeline** — Monthly avg rating over time
-- **Genres full breakdown** — Complete genre list
-- **By the numbers** — Snapshot stats grid
-- **Rewatches** — Count, avg rating on rewatch, top rewatched films
-- **Composers** — Soundtrack trends (Zimmer, Morricone, Williams, etc.)
-- **Streak breakdown** — Current/longest/avg streaks, top 5 list
-- **Blind spots** — Famous directors you haven't watched
-- **Taste DNA** — Your film profile: top genres, era, bias vs consensus, polarization, most-trusted director
-- **Watch patterns** — Activity by month
-- **Hottest takes** — Full divergence list vs TMDB
-- **Discoveries** — Films you rated 4+ with low TMDB vote counts (hidden gems)
-- **Director completion** — Filmography coverage % for your top directors, lazy-loaded from TMDB, color-coded by depth
-- **Taste drift** — Year-over-year diff: watch count delta, avg rating drift, top genre shift, new directors discovered
+| Panel | What it shows |
+|---|---|
+| By decade | Films watched per decade |
+| Top directors | Most-watched directors with average rating |
+| Rating timeline | Average rating by month |
+| Genres | Full genre breakdown |
+| By the numbers | Snapshot grid incl. "days of your life" and longest gap |
+| Rewatches | Count, average rewatch rating, most rewatched |
+| Composers | Soundtrack trends across a curated composer map |
+| Streaks | Current / longest / average, plus your top 5 streaks |
+| Blind spots | Acclaimed directors you haven't watched yet |
+| Taste DNA | A prose personality profile: genres, era, bias, polarization, most-trusted director |
+| Watch patterns | Activity by month |
+| Hottest takes | Full divergence-vs-TMDB list |
+| Discoveries | Films you rated 4★+ that have low TMDB vote counts (your hidden gems) |
+| Director completion | Filmography coverage %, lazy-loaded from the TMDB person API |
+| Taste drift | Year-over-year diff: watch count, average rating, top genre, new directors |
 
 ### Canon
-- Grid view of all films tagged as "canon" or rated ★5
-- **Tier view** — Organize films by tier (S/A/B/C)
-- **Sort options** — By date added, rating, year, or title
-- **Detail overlay** — Click a poster for title, director, year, rating, watch date
-
-### UX Polish
-- **Light/dark theme** — Manual toggle + respects `prefers-color-scheme`
-- **Keyboard shortcuts** — `1/2/3/4` for tabs, `/` for diary search
-- **Mobile responsive** — Sidebar collapses at 768px, contribution graph scrolls horizontally, metrics go 2×2
-- **About modal** — Tech stack, how it works, creator links
+- A shelf of your **canon** films (liked on Letterboxd, or tagged via `mg tag`).
+- **Grid** and **tier** (S/A/B/C) views, sortable by date added, rating, year, or title.
+- Click any poster for a detail overlay.
 
 ---
 
-## Data Architecture
+## The mg Terminal
 
-### Sources
+Press **`` ` ``** (backtick) or click the **terminal icon** in the header to open a bottom-drawer command line. It parses quoted arguments, keeps per-session history (↑/↓), and speaks git.
+
+```
+mg@islaby:~$ status
+On branch main
+136 films logged · 293h runtime
+last sync: 2m ago · auto-poll every 5m
+this month: 2 films · current streak: 1d
+enrichment: 136/136 (100%) ✓
+working tree clean
+```
+
+### Command reference
+
+**Inspecting history**
+| Command | Description |
+|---|---|
+| `status` | Repo state: film count, sync, streak, enrichment progress |
+| `log [n]` | Commit log of watches (scoped to the checked-out branch) |
+| `show <film>` | Full detail for one film |
+| `grep <query>` | Search titles, directors, and genres |
+| `blame <film>` | *Why* a rating happened — TMDB divergence, your genre averages, director trust |
+| `shortlog` | Films grouped by director (git-authors style) |
+| `contributors` | Directors ranked by contribution share, with bars |
+| `streak` | Current and longest watch streaks |
+
+**Analysis**
+| Command | Description |
+|---|---|
+| `diff <year1> <year2>` | Taste diff between two years |
+| `rebase <year>` | Replay a year month-by-month |
+| `wrapped [year]` | A year-in-review card |
+| `bisect [genre]` | Find the film after which your ratings shifted most |
+| `merge <user>` | Taste-compatibility score vs another Letterboxd user, with "merge conflicts" |
+
+**Mutating state**
+| Command | Description |
+|---|---|
+| `commit "Title" [year] [★]` | Log a film watched today |
+| `revert <film>` | Un-log a film locally |
+| `tag <film>` | Toggle a film's canon flag |
+| `branch [name] [add\|rm <film>] [-d]` | Named film collections |
+| `checkout <branch\|tab>` | Switch branch (scopes `log`) or jump to a view |
+| `stash [<film>\|list\|pop\|drop n]` | A watchlist: set films aside |
+| `cherry-pick <user> <film>` | Grab a film off another profile into your stash |
+
+**Sync & remote**
+| Command | Description |
+|---|---|
+| `pull` | Sync from Letterboxd (fetch + merge) |
+| `fetch` | Check the origin for new films without merging |
+| `push` | Export your enriched history as a JSON download |
+| `remote [-v]` | Show the linked Letterboxd origin and sync health |
+| `reflog` | Sync audit trail: every poll and what it found |
+| `clone <user>` | Open another user's dashboard |
+
+**Housekeeping**
+| Command | Description |
+|---|---|
+| `gc` | Prune orphaned TMDB cache entries, report storage usage |
+| `config [theme dark\|light]` | View or set dashboard config |
+| `help` · `clear` · `exit` | Builtins |
+
+> **On `push`:** Letterboxd has no public write API, so `push` exports locally rather than writing back. See [Logging from your own terminal](#faq) for how a thin CLI wrapper *could* close that loop.
+
+---
+
+## How Sync Works
+
+This is the part most Letterboxd tools get wrong, so it's worth being precise.
+
+**Letterboxd's RSS feed only publishes _diary_ entries** — films you log with an explicit watched-date. Many people (including this project's account) instead log films by simply **rating them and marking them watched**, which never produces a diary entry and therefore **never appears in RSS**. Any tool that relies on RSS silently misses those films forever.
+
+MovieGit instead scrapes the **profile films grid** at `letterboxd.com/{user}/films/`. That page lists *every* watched film with its star rating (`rated-N`, where N/2 = stars), newest first, and updates the instant a film is rated and marked watched. MovieGit fetches it through a CORS-proxy chain (`allorigins.win/raw`, falling back to `cors.eu.org`), parses the grid, and merges new films into your history.
+
+Because the films grid carries no per-film date, newly discovered films are dated to the day they're first seen ("commit today" semantics), while films already in your history keep their real dates from the seed import — so re-polling upgrades ratings in place without ever duplicating a row.
+
+**Data sources at a glance:**
 
 | Source | Purpose | Method |
 |---|---|---|
-| **Letterboxd CSV export** | Full watch history (seed data) | One-time file input, parsed client-side |
-| **Letterboxd RSS** | Live recent diary entries | Client-side polling every 5 minutes via CORS proxy |
-| **TMDB API v3** | Posters, genres, runtime, directors, vote averages, director filmographies | Fetched per film/person, cached in localStorage |
+| Letterboxd films grid | Live watched + rated films | Scraped every 5 min via CORS proxy |
+| Letterboxd CSV export | Full backfilled history with real dates | Baked into `SEED_DATA`; `SEED_VERSION` merges updates |
+| TMDB API v3 | Posters, genres, runtime, director, consensus ratings | Lazy per-film fetch, cached in `localStorage` |
 
-### Data Flow
+---
 
-1. **On load**, check `localStorage` for cached CSV data (full history)
-2. **Immediately** poll Letterboxd RSS for entries newer than the latest cached entry; extract avatar from RSS channel image
-3. **Merge** RSS entries with cached history; re-render affected views
-4. **Enrich** entries missing metadata via TMDB (poster, genres, runtime, director) — lazy, cached
-5. **Poll** RSS again every 5 minutes; only update UI if new entries found
+## Architecture
 
-### Entry Schema
+Single `index.html`. Inside the one `<script>` block:
 
-```javascript
-{
-  id: string,           // Letterboxd URI slug
-  title: string,
-  year: number,
-  director: string,     // from TMDB
-  rating: number,       // 0.5–5.0, null if unrated
-  watchedDate: string,  // ISO date (YYYY-MM-DD)
-  rewatch: boolean,
-  tags: string[],
-  letterboxdUrl: string,
-  tmdbId: number,
-  poster: string,       // TMDB poster path
-  genres: string[],
-  runtime: number,      // minutes
-  country: string,
-  decade: number,       // e.g. 1970
-  canon: boolean,
-  voteAvg: number,      // TMDB 0–10
-  voteCount: number,
-  popularity: number
-}
+```
+CFG    — config: username, TMDB key (obfuscated), poll interval
+STORE  — localStorage read/write helpers
+DATA   — CSV parsing, entry merge, dedup by {id, watchedDate}
+LB     — Letterboxd sync: films-grid scrape + CORS-proxy chain
+TMDB   — lazy enrichment (search → details → credits), batched + rate-limited
+RENDER — every view renderer (overview, diary, stats, canon) + mg log
+UI     — tabs, theme toggle, modal, share, keyboard shortcuts
+MG     — bootstrap, poll loop, seed-merge, sync timestamp
+MGSH   — the mg terminal: drawer UI + 28-command registry
 ```
 
-### Storage
+**Design principles**
+- **Zero build, zero server.** Deployable to any static host; runs from `file://`.
+- **Resilient enrichment.** TMDB fetches run in batches of 4 with pacing to respect rate limits; films TMDB can't find are negative-cached for 24h; concurrent poll additions are never clobbered by an in-flight enrichment pass.
+- **Obfuscated API key.** The TMDB key is split and base64-encoded, reassembled at runtime — never stored in plaintext.
+- **Faithful GitHub aesthetic.** Monospace type, dark-first palette (`#0F172A` canvas, `#22C55E` accent), underline navigation, hover tooltips, visible focus rings, and a respected `prefers-reduced-motion`.
 
-| Key | Contents |
+---
+
+## Keyboard Shortcuts
+
+| Key | Action |
 |---|---|
-| `mg_history` | Full parsed film log |
-| `mg_tmdb_cache` | TMDB ID → enriched metadata |
-| `mg_dir_filmography` | Director name → `{ tmdbId, total }` for completion % |
-| `mg_last_poll` | ISO timestamp of last RSS poll |
-| `mg_settings` | Username, theme preference |
-| `mg_csv_loaded` | Boolean — CSV seeded |
+| `1` `2` `3` `4` | Jump to Overview / Diary / Stats / Canon |
+| `/` | Focus diary search |
+| `` ` `` | Toggle the `mg` terminal |
+| `↑` `↓` | (in terminal) cycle command history |
+| `Esc` | (in terminal) close the drawer |
 
 ---
 
-## Tech Stack
+## Self-Hosting
 
-- **HTML5** — Semantic markup
-- **Vanilla JavaScript** — Zero dependencies (except CDN icons)
-- **CSS3** — Grid, flexbox, CSS custom properties, media queries
-- **localStorage** — Client-side persistence
-- **Letterboxd RSS** — Public feed at `https://letterboxd.com/{username}/rss/`
-- **TMDB API v3** — Search, movie details, credits, person filmographies
-- **allorigins.win** — CORS proxy for RSS polling
-- **Tabler Icons** — Icon library via CDN
-
-**No build step. No server. No tracking. Fully self-contained in a single HTML file.**
+1. **Download** `index.html` + `favicon-tv-b.svg`.
+2. **Get a free TMDB API key** at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
+3. **Edit `index.html`:**
+   - In the `CFG` module, set `USERNAME` to your Letterboxd handle.
+   - Replace the two base64 key halves with your own TMDB key (split at 16 chars, base64-encode each half).
+4. **Seed your history (optional but recommended):** export your data from Letterboxd (Settings → Data → Export) and drop `watched.csv` + `ratings.csv` into the seed, or let live sync build it up from scratch.
+5. **Deploy** to GitHub Pages, Netlify, Vercel, or just open the file locally.
 
 ---
 
-## Setup & Usage
+## Multi-User & Sharing
 
-### Option 1: Use the Demo
-1. Visit the [live site](https://jeffzh4.github.io/Moviegit)
-2. Click "About" (?) to learn how it works
-
-### Option 2: Self-Host
-1. **Download** `index.html` + `favicon-tv-b.svg`
-2. **Get a TMDB API key** (free) at [tmdb.org/settings/api](https://www.themoviedb.org/settings/api)
-3. **Edit the file**:
-   - Find `USERNAME = 'islaby'` and change to your Letterboxd handle
-   - Replace the TMDB key halves with your own (base64-encode each half of your key split at position 16)
-4. **Export your watch history**:
-   - Letterboxd → Settings → Data Import & Export → Download diary CSV
-   - Open the app → click "Seed your watch history" → drop the CSV
-5. **Deploy** anywhere: GitHub Pages, Netlify, Vercel, or open locally
-
-### Option 3: Phase 2 Multi-User (Coming Soon)
-- Enter any Letterboxd username + your TMDB key
-- View dashboards for any user (read-only, no login required)
-- Share via URL: `?user=yourhandle`
+- **`?user=<handle>`** opens any public Letterboxd account in read-only guest mode (namespaced storage, guest banner, sync scoped to that user).
+- **`?tab=<name>`** deep-links directly to a view.
+- The **share button** uses the Web Share API on mobile, with a clipboard fallback on desktop.
+- From the terminal, `clone <user>` is the shortcut for the same thing.
 
 ---
 
-## Key Technical Decisions
+## FAQ
 
-### 1. CORS Proxy for Letterboxd RSS
-```javascript
-const URL = `https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`;
-```
+**Why don't my films show up if I only rate them?**
+They do — that's the whole point of the films-grid sync. Tools built on RSS miss rated-but-not-diaried films; MovieGit doesn't. See [How Sync Works](#how-sync-works).
 
-### 2. TMDB Key Obfuscation
-Split at 16 characters, each half base64-encoded:
-```javascript
-const _parts = ['YTE3ZGM1OTZkMzg1OGFkOQ==', 'N2Q5YjA2MTA3ODYyMDljOQ=='];
-const KEY = _parts.map(atob).join('');
-```
+**Can I run `mg` from my real terminal instead of the in-app one?**
+Not yet — `mg` currently lives in the browser. A thin CLI wrapper is a natural next step: a small Node/Python script that reads the same Letterboxd films grid for read commands (`log`, `status`, `diff`), and — for `commit` — drives Letterboxd's authenticated web session to actually log the film, which would then flow back into the dashboard on the next sync. Because Letterboxd has no public write API, `commit`-to-Letterboxd requires either browser automation against your logged-in session or the unofficial mobile API, so it ships as a deliberate, opt-in piece rather than something baked into the static page.
 
-### 3. `mg log` Commit Hashes
-Deterministic 7-char hex per film using FNV-1a on `title+year`. Same film always gets the same hash across sessions — no storage needed.
+**Where is my data stored?**
+Entirely in your browser's `localStorage`. Nothing is sent anywhere except read-only requests to Letterboxd (via CORS proxy) and TMDB (for enrichment).
 
-### 4. Director Completion via TMDB Person API
-Two-step fetch: `/search/person?query=name` → `/person/{id}/movie_credits`, filtering crew to `job === 'Director'`. Results cached in `mg_dir_filmography` — each director only looked up once ever.
-
-### 5. Lazy TMDB Enrichment
-Batches of 4 with 280ms sleep between batches to respect rate limits (180 reqs/10s).
-
-### 6. Deduplication
-Merge entries by `{id, watchedDate}`. RSS entries take priority over CSV.
-
-### 7. Contribution Graph via CSS Grid
-53 weeks × 7 days cells. `grid-auto-flow: column` handles week-major layout.
-
----
-
-## Limitations
-
-- No Letterboxd OAuth (Letterboxd doesn't offer a public user API)
-- No watchlist management (read-only dashboard)
-- No social features
-- Rewatch detection via Letterboxd tags only
-- Composer data uses a curated film→composer map (not live from TMDB)
-
----
-
-## Troubleshooting
-
-**"No data appears"** — Check console (F12). Ensure Letterboxd handle is correct. Try a fresh CSV export.
-
-**"No posters/genres/directors"** — Check TMDB key validity. Look for rate-limit errors in console.
-
-**"Theme toggle doesn't work"** — Run `localStorage.clear()` in console and reload.
-
-**"RSS not updating"** — Verify Letterboxd RSS URL. allorigins.win may have downtime.
-
----
-
-## Contributing
-
-Found a bug? Have a feature request? Open an issue or submit a PR.
-
----
-
-## License
-
-MIT. Use, modify, and distribute freely.
-
----
-
-## Credits
-
-Built by **Jeffrey Zhang**.
-
-Data powered by **Letterboxd** and **TMDB**. Icons via **Tabler Icons**.
-
-Also in the portfolio:
-- [Twosday](https://github.com/jeffzh4-ux/Twosday) — A Tuesday-themed productivity app
-- Cinematch — A film recommendation engine (coming soon)
+**Does it work offline?**
+Once loaded and cached, yes — the dashboard renders from `localStorage`. Sync and enrichment resume when you're back online.
 
 ---
 
 ## Changelog
 
 ### v1.4 (Current)
-- ✅ **`mg` terminal** — a real command line over your watch history (`` ` `` or the `>_` header button). 18 git-style commands: `status` `log` `commit` `pull` `fetch` `push` `show` `grep` `diff` `shortlog` `tag` `branch` `checkout` `stash` `revert` `blame` `remote` `clone` — plus `help`/`clear`/`exit` builtins, quoted-arg parsing, command history (↑/↓)
-- ✅ `mg blame <film>` — traces *why* a rating happened: divergence vs TMDB, your genre averages, director trust level
-- ✅ `mg branch` / `checkout` — named film collections with scoped `log`; `mg stash` — watchlist
-- ✅ Poster fix: removed the 80-film enrichment cap (posters starved after first batch), negative-cache for films not on TMDB (24h retry instead of hammering every load), posters upgraded w154 → w342 with one-time migration
+- **`mg` terminal** — a real command line over your watch history (`` ` `` or the header terminal button). **28 git-style commands**: `status` `log` `commit` `pull` `fetch` `push` `show` `grep` `diff` `shortlog` `contributors` `streak` `tag` `branch` `checkout` `stash` `revert` `blame` `remote` `reflog` `clone` `merge` `cherry-pick` `rebase` `wrapped` `bisect` `gc` `config` — plus `help`/`clear`/`exit`.
+- `mg blame` traces *why* a rating happened; `mg merge <user>` scores taste compatibility against another account; `mg bisect` finds your taste-shifting film.
+- **Poster fix** — removed the enrichment cap that left later films blank, added a 24h negative-cache for films missing from TMDB, upgraded posters to higher resolution (w342) with a one-time migration.
+- **GitHub-esque polish** — header button tooltips, underline navigation, focus rings, `prefers-reduced-motion` support.
 
 ### v1.3
-- ✅ **Live sync that actually works** — scrapes the profile films grid (`/{user}/films/`) instead of RSS. Every watched+rated film appears the moment it's rated, no diary entry or review required
-- ✅ CORS proxy chain: `allorigins.win/raw` primary → `cors.eu.org` fallback (both verified on Letterboxd HTML)
-- ✅ Fixed enrichment race that dropped freshly-synced films (enrich now overlays onto latest history, never clobbers)
-- ✅ Poll interval 5 min (HTML scrape, no rss2json quota); real avatar pulled from films page
-
-### v1.2.1
-- ✅ Refreshed seed data from latest Letterboxd export — now 134 films (was ~115), including recent 2026 watches
-- ✅ `SEED_VERSION` mechanism — updated seed merges into existing users' data without wiping TMDB enrichment
-- ✅ Diagnosed RSS limitation: feed only carries diary entries; watched+rated films (this account's method) aren't published to RSS
+- **Live sync that actually works** — scrapes the profile films grid instead of RSS, so watched + rated films appear the moment they're logged. CORS-proxy chain (`allorigins.win/raw` → `cors.eu.org`). Fixed an enrichment race that dropped freshly-synced films.
 
 ### v1.2
-- ✅ `?user=handle` guest view — read-only dashboard for any Letterboxd user, namespaced storage
-- ✅ URL state for active tab (`?tab=diary` etc.) — deep-linkable, preserved across nav
-- ✅ Year in Film prose panel — auto-generated narrative summary of the current year
-- ✅ Contribution graph film-title tooltips — hover shows film names for each day
-- ✅ Milestone markers — gold dots on graph at the 50th / 100th / 250th / 500th film
-- ✅ Taste DNA narrative rewrite — personality-profile prose, not a stats dump
-- ✅ "Days of your life" + "Longest gap" in By the Numbers
-- ✅ Web Share API button — native share sheet on mobile, clipboard fallback on desktop
-- ✅ Enrichment progress bar — thin green bar fills as TMDB data loads
+- `?user=<handle>` guest view, `?tab=` deep-linking, contribution-graph tooltips, milestone markers, Taste DNA prose rewrite, Web Share button, enrichment progress bar.
 
 ### v1.1
-- ✅ `mg log` terminal diary view with deterministic FNV-1a commit hashes
-- ✅ Director filmography completion % (lazy TMDB person API, cached)
-- ✅ Taste drift panel (year-over-year diff: watch count, avg rating, genre, new directors)
-- ✅ Mobile responsiveness (768px / 480px breakpoints)
-- ✅ Letterboxd avatar pulled live from RSS channel image
-- ✅ Metric card icon visibility improvements
-- ✅ Light mode audit (hardcoded colors replaced with CSS variables)
-- ✅ Keyboard shortcuts (`1/2/3/4`, `/`)
-- ✅ `@islaby` sidebar link
-- ✅ "Last synced" timestamp on contribution graph
+- `mg log` terminal diary view, director-completion %, taste-drift panel, mobile responsiveness, live avatar from Letterboxd, keyboard shortcuts.
 
 ### v1.0
-- ✅ Contribution graph (52-week heatmap)
-- ✅ Metrics cards (avg rating, watch time, films this month, rewatches)
-- ✅ Rating distribution chart
-- ✅ Recent activity feed
-- ✅ Diary view (paginated, filterable)
-- ✅ Stats view (decades, directors, rating timeline, genres, by the numbers, taste DNA, watch patterns, hottest takes, discoveries, rewatches, composers, streak breakdown, blind spots)
-- ✅ Canon shelf (grid + tier view)
-- ✅ About modal
-- ✅ Light/dark theme toggle
-- ✅ Letterboxd RSS polling (5min)
-- ✅ TMDB enrichment (batch, cached)
-- ✅ CSV import/seed
-- ✅ Hottest takes callout
-- ✅ Genre sparklines
-
-### v1.3 Roadmap
-- [ ] Settings panel (multi-user — enter any username + TMDB key)
-- [ ] Composer data from TMDB credits (replace curated map)
-- [ ] Terminal mode (full green-on-black aesthetic)
-- [ ] Export enriched history as JSON/CSV
-- [ ] Blind spots director count from TMDB (replace hardcoded map)
-- [ ] Service worker / offline support
+- Contribution graph, metric cards, rating distribution, activity feed, diary, 15-panel stats, canon shelf, about modal, light/dark theme, TMDB enrichment, CSV seed.
 
 ---
 
-Built with ❤️ for cinema.
+## Credits
+
+Built by **Jeffrey Zhang**. Data from **Letterboxd** and **TMDB**. Icons via **Tabler Icons**.
+
+Also in the portfolio: [Twosday](https://github.com/jeffzh4-ux/Twosday) · Cinematch *(coming soon)*.
+
+## License
+
+MIT — use, modify, and distribute freely.
+
+<p align="center"><sub>Built for cinema. Committed daily.</sub></p>
