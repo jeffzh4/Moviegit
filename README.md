@@ -257,7 +257,13 @@ Also in the portfolio:
 
 ## Changelog
 
-### v1.3 (Current)
+### v1.4 (Current)
+- ✅ **`mg` terminal** — a real command line over your watch history (`` ` `` or the `>_` header button). 18 git-style commands: `status` `log` `commit` `pull` `fetch` `push` `show` `grep` `diff` `shortlog` `tag` `branch` `checkout` `stash` `revert` `blame` `remote` `clone` — plus `help`/`clear`/`exit` builtins, quoted-arg parsing, command history (↑/↓)
+- ✅ `mg blame <film>` — traces *why* a rating happened: divergence vs TMDB, your genre averages, director trust level
+- ✅ `mg branch` / `checkout` — named film collections with scoped `log`; `mg stash` — watchlist
+- ✅ Poster fix: removed the 80-film enrichment cap (posters starved after first batch), negative-cache for films not on TMDB (24h retry instead of hammering every load), posters upgraded w154 → w342 with one-time migration
+
+### v1.3
 - ✅ **Live sync that actually works** — scrapes the profile films grid (`/{user}/films/`) instead of RSS. Every watched+rated film appears the moment it's rated, no diary entry or review required
 - ✅ CORS proxy chain: `allorigins.win/raw` primary → `cors.eu.org` fallback (both verified on Letterboxd HTML)
 - ✅ Fixed enrichment race that dropped freshly-synced films (enrich now overlays onto latest history, never clobbers)

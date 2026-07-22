@@ -1608,6 +1608,39 @@
       .canon-grid  { grid-template-columns: repeat(2, 1fr) !important; }
       .mg-nav a { padding: 5px 8px; font-size: 10px; }
     }
+    /* ── mg terminal drawer ─────────────────────────────────── */
+    .mgsh {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+      height: 44vh; min-height: 220px; display: flex; flex-direction: column;
+      background: var(--bg-canvas); border-top: 2px solid var(--accent-green);
+      box-shadow: 0 -8px 32px rgba(0,0,0,.45);
+      transform: translateY(100%); transition: transform .18s ease;
+      font-size: 13px;
+    }
+    .mgsh.open { transform: translateY(0); }
+    .mgsh-out {
+      flex: 1; overflow-y: auto; padding: 10px 14px 4px;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.55;
+      color: var(--text-primary);
+    }
+    .mgsh-out .sh-dim    { color: var(--text-tertiary); }
+    .mgsh-out .sh-ok     { color: var(--accent-green); }
+    .mgsh-out .sh-err    { color: var(--trend-dn); }
+    .mgsh-out .sh-accent { color: var(--accent-blue); }
+    .mgsh-out .sh-star   { color: var(--accent-orange); }
+    .mgsh-out .sh-hash   { color: var(--accent-purple); }
+    .mgsh-out .sh-cmd    { color: var(--text-primary); font-weight: 600; }
+    .mgsh-line {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px 10px; border-top: 1px solid var(--border-muted);
+    }
+    .mgsh-prompt { color: var(--accent-green); white-space: nowrap; user-select: none; }
+    .mgsh-line input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text-primary); font: inherit; caret-color: var(--accent-green);
+    }
+    @media (max-width: 768px) { .mgsh { height: 55vh; } }
+
   </style>
 </head>
 <body>
@@ -1648,6 +1681,9 @@
     </nav>
 
     <div class="mg-header-right">
+      <button class="icon-btn" id="mgsh-btn" aria-label="Open mg terminal" title="mg terminal (`)">
+        <i class="ti ti-terminal-2"></i>
+      </button>
       <button class="icon-btn" id="share-btn" aria-label="Share dashboard" title="Share this dashboard">
         <i class="ti ti-share"></i>
       </button>
@@ -2152,6 +2188,15 @@
   </div>
 </div>
 
+<!-- mg terminal drawer -->
+<div class="mgsh" id="mgsh" role="region" aria-label="mg terminal">
+  <div class="mgsh-out" id="mgsh-out"></div>
+  <div class="mgsh-line">
+    <span class="mgsh-prompt" id="mgsh-prompt">mg@moviegit:~$</span>
+    <input id="mgsh-in" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="mg command input">
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -2456,7 +2501,9 @@ const TMDB = (() => {
       const s   = await fetch(`${CFG.TMDB_BASE}/search/movie?${key}&query=${q}${yr}`);
       const sd  = await s.json();
       const mov = sd.results?.[0];
-      if (!mov) return entry;
+      // Not on TMDB (yet) — negative-cache the miss so we don't hammer the API
+      // every load; retried after 24h (new releases appear on TMDB eventually).
+      if (!mov) return { ...entry, tmdbMiss: Date.now() };
 
       const d   = await fetch(`${CFG.TMDB_BASE}/movie/${mov.id}?${key}&append_to_response=credits`);
       const dd  = await d.json();
@@ -2465,7 +2512,7 @@ const TMDB = (() => {
       const genres     = (dd.genres || []).map(g => g.name);
       const runtime    = dd.runtime  || null;
       const country    = dd.production_countries?.[0]?.iso_3166_1 || null;
-      const poster     = dd.poster_path ? CFG.TMDB_IMG_SM + dd.poster_path : (entry.poster || null);
+      const poster     = dd.poster_path ? CFG.TMDB_IMG_MD + dd.poster_path : (entry.poster || null);
       const voteAvg    = dd.vote_average   || null;
       const voteCount  = dd.vote_count     || null;
       const popularity = dd.popularity     || null;
@@ -2482,7 +2529,16 @@ const TMDB = (() => {
 
   async function enrichBatch(entries, onDone) {
     if (!CFG.TMDB_KEY) return;
-    const todo = entries.filter(e => !e.tmdbId || !e.director || e.voteAvg == null).slice(0, 80);
+    // No cap: enrich EVERY film missing data in one pass (batches of 4 + 280ms sleep
+    // keep us under TMDB rate limits; the old .slice(0,80) starved films 81+ until a
+    // second full page load, leaving posters blank). Two terminal states are excluded:
+    //   - fully enriched (tmdbId + voteAvg present; director may legitimately be null)
+    //   - recent TMDB miss (film not on TMDB — retry only after 24h)
+    const now  = Date.now();
+    const todo = entries.filter(e => {
+      if (e.tmdbId) return e.voteAvg == null;                       // partial — finish it
+      return !(e.tmdbMiss && now - e.tmdbMiss < 24 * 3600 * 1000);  // unfound — daily retry
+    });
     if (!todo.length) { if (onDone) onDone(entries); return; }
     const BATCH = 4;
     let done = 0;
@@ -4154,7 +4210,7 @@ const RENDER = (() => {
 
   function closeCanonOverlay() { _closeCanon(); }
 
-  return { overview, diary, stats, canon, _diaryPage: renderDiaryPage, _openCanon, _openCanon_tier, _closeCanon };
+  return { overview, diary, stats, canon, _diaryPage: renderDiaryPage, _openCanon, _openCanon_tier, _closeCanon, mgHash };
 })();
 
 /* ============================================================
@@ -4392,6 +4448,14 @@ const MG = (() => {
       }
     }
 
+    // One-time poster upgrade: earlier builds stored w154 (blurry on canon tiles).
+    // Rewrite any cached w154 URLs to w342 — same TMDB image, higher res.
+    if (history.some(e => e.poster && e.poster.includes('/t/p/w154'))) {
+      history = history.map(e => e.poster
+        ? { ...e, poster: e.poster.replace('/t/p/w154', '/t/p/w342') } : e);
+      STORE.setHistory(history);
+    }
+
     RENDER.overview(history);
 
     // Activate tab from URL param
@@ -4460,13 +4524,406 @@ const MG = (() => {
     document.getElementById('import-wrap').style.display = 'none';
   }
 
-  return { init, dismissImport, renderActiveTab };
+  return { init, dismissImport, renderActiveTab, pollRSS };
 })();
 
 /* ── Helpers ── */
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-document.addEventListener('DOMContentLoaded', () => MG.init());
+/* ============================================================
+   MGSH  — the mg terminal. GitHub for movies, literally:
+   a command line over your watch history. 18 git-style commands.
+   ============================================================ */
+const MGSH = (() => {
+  const HOUR24 = 24 * 3600 * 1000;
+  let histBuf = [], histIdx = -1;
+
+  const $out = () => document.getElementById('mgsh-out');
+  const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  function print(html, cls) {
+    const div = document.createElement('div');
+    if (cls) div.className = cls;
+    div.innerHTML = html;
+    $out().appendChild(div);
+    $out().scrollTop = $out().scrollHeight;
+  }
+  const ok  = s => print(s, 'sh-ok');
+  const err = s => print(s, 'sh-err');
+  const dim = s => print(s, 'sh-dim');
+
+  // ── tiny state (branches / stash / HEAD) ────────────────────
+  const readK  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeK = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  const getBranches = () => readK('mg_branches', {});
+  const getHead     = () => readK('mg_head', null);
+  const getStash    = () => readK('mg_stash', []);
+
+  // ── helpers ─────────────────────────────────────────────────
+  const hist  = () => STORE.getHistory();
+  const stars = r => r == null ? '<span class="sh-dim">unrated</span>'
+    : '<span class="sh-star">' + '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '') + '</span>';
+  const hash  = e => `<span class="sh-hash">${RENDER.mgHash(e.title, e.year)}</span>`;
+
+  function tokenize(line) {
+    const t = []; const re = /"([^"]*)"|'([^']*)'|(\S+)/g; let m;
+    while ((m = re.exec(line))) t.push(m[1] ?? m[2] ?? m[3]);
+    return t;
+  }
+
+  // Fuzzy film lookup: exact title → starts-with → includes
+  function findFilm(q) {
+    if (!q) return { film: null, matches: [] };
+    const needle = q.toLowerCase();
+    const h = hist();
+    let matches = h.filter(e => e.title.toLowerCase() === needle);
+    if (!matches.length) matches = h.filter(e => e.title.toLowerCase().startsWith(needle));
+    if (!matches.length) matches = h.filter(e => e.title.toLowerCase().includes(needle));
+    return { film: matches[0] || null, matches };
+  }
+
+  function scoped() {
+    const head = getHead();
+    if (!head) return hist();
+    const ids = new Set(getBranches()[head] || []);
+    return hist().filter(e => ids.has(e.id));
+  }
+
+  function streakDays() {
+    const dates = new Set(hist().map(e => e.watchedDate));
+    let n = 0; const d = new Date();
+    for (;;) {
+      const iso = d.toISOString().slice(0, 10);
+      if (dates.has(iso)) { n++; d.setDate(d.getDate() - 1); }
+      else if (n === 0 && iso === new Date().toISOString().slice(0, 10)) { d.setDate(d.getDate() - 1); if (!dates.has(d.toISOString().slice(0,10))) break; }
+      else break;
+    }
+    return n;
+  }
+
+  function yearStats(y) {
+    const f = hist().filter(e => (e.watchedDate || '').startsWith(String(y)));
+    const rated = f.filter(e => e.rating != null);
+    const avg = rated.length ? rated.reduce((s, e) => s + e.rating, 0) / rated.length : null;
+    const mins = f.reduce((s, e) => s + (e.runtime || 0), 0);
+    const gc = {};
+    f.forEach(e => (e.genres || []).forEach(g => gc[g] = (gc[g] || 0) + 1));
+    const topG = Object.entries(gc).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    return { films: f, count: f.length, avg, hours: Math.round(mins / 60), topG, dirs: new Set(f.map(e => e.director).filter(Boolean)) };
+  }
+
+  function refresh(h) { STORE.setHistory(h); MG.renderActiveTab(h); }
+
+  // ── command registry ────────────────────────────────────────
+  const CMDS = {
+
+    help: { use: 'help', desc: 'list commands', fn() {
+      dim('mg — git for your movies. Commands:');
+      Object.keys(CMDS).sort().forEach(k =>
+        print(`  <span class="sh-cmd">${esc(CMDS[k].use.padEnd(34))}</span><span class="sh-dim">${esc(CMDS[k].desc)}</span>`));
+      dim('Also: clear · ` or Esc closes the terminal');
+    }},
+
+    status: { use: 'status', desc: 'repo state: films, sync, streak, enrichment', fn() {
+      const h = hist(); const head = getHead();
+      const mins = h.reduce((s, e) => s + (e.runtime || 0), 0);
+      const month = new Date().toISOString().slice(0, 7);
+      const enriched = h.filter(e => e.tmdbId).length;
+      const last = STORE.getLastPoll();
+      const ago  = last ? Math.round((Date.now() - new Date(last)) / 60000) + 'm ago' : 'never';
+      print(`On branch <span class="sh-accent">${esc(head || 'main')}</span>`);
+      print(`${h.length} films logged · ${Math.round(mins / 60)}h runtime`);
+      print(`last sync: ${ago} · auto-poll every ${CFG.POLL_MS / 60000}m`);
+      print(`this month: ${h.filter(e => (e.watchedDate || '').startsWith(month)).length} films · current streak: ${streakDays()}d`);
+      const pct = h.length ? Math.round(enriched / h.length * 100) : 0;
+      print(`enrichment: ${enriched}/${h.length} (${pct}%)` + (pct === 100 ? ' <span class="sh-ok">✓</span>' : ''));
+      const st = getStash();
+      if (st.length) dim(`stash: ${st.length} film${st.length > 1 ? 's' : ''} set aside`);
+      ok('working tree clean');
+    }},
+
+    log: { use: 'log [n] ', desc: 'commit log of watches (scoped to HEAD branch)', fn(a) {
+      const n = parseInt(a[0]) || 12;
+      const h = scoped().slice().sort((x, y) => y.watchedDate.localeCompare(x.watchedDate)).slice(0, n);
+      if (!h.length) return dim('no commits on this branch');
+      h.forEach(e => print(`${hash(e)}  <span class="sh-dim">${e.watchedDate}</span>  ${esc(e.title)} <span class="sh-dim">(${e.year || '—'})</span>  ${stars(e.rating)}${e.director ? '  <span class="sh-dim">— ' + esc(e.director) + '</span>' : ''}`));
+    }},
+
+    commit: { use: 'commit "Title" [year] [★]', desc: 'log a film watched today', async fn(a) {
+      const title = a[0];
+      if (!title) return err('usage: commit "Title" [year] [rating 0.5–5]');
+      const year   = a[1] && /^\d{4}$/.test(a[1]) ? parseInt(a[1]) : null;
+      const rating = a.find(x => /^\d(\.\d)?$/.test(x) && parseFloat(x) <= 5 && x !== String(year)) ? parseFloat(a.find(x => /^\d(\.\d)?$/.test(x) && parseFloat(x) <= 5 && x !== String(year))) : null;
+      const today  = new Date().toISOString().slice(0, 10);
+      const entry  = { id: title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + (year ? '-' + year : ''),
+        title, year, director: null, rating, watchedDate: today, rewatch: false, tags: [],
+        letterboxdUrl: '', tmdbId: null, poster: null, genres: [], runtime: null, country: null,
+        decade: year ? Math.floor(year / 10) * 10 : null, canon: false, source: 'manual' };
+      const merged = DATA.merge(hist(), [entry]);
+      if (merged.length === hist().length) return err('already committed: film exists for ' + today);
+      refresh(merged);
+      ok(`[main ${RENDER.mgHash(title, year)}] ${esc(title)}${year ? ' (' + year + ')' : ''}${rating ? ' rated' : ''}`);
+      dim('1 film logged · enriching from TMDB…');
+      TMDB.enrichBatch(merged, h2 => MG.renderActiveTab(h2));
+    }},
+
+    pull: { use: 'pull', desc: 'sync from Letterboxd (fetch + merge)', async fn() {
+      dim('polling origin (letterboxd.com)…');
+      const before = hist().length;
+      await MG.pollRSS();
+      const after = hist().length;
+      after > before ? ok(`updated: +${after - before} film${after - before > 1 ? 's' : ''}`) : print('Already up to date.');
+    }},
+
+    fetch: { use: 'fetch', desc: 'check origin for new films (no merge)', async fn() {
+      dim('fetching origin…');
+      const rows = await LB.poll(hist());
+      if (!rows.length) return err('origin unreachable (all proxies failed)');
+      const known = new Set(hist().map(e => `${e.title.toLowerCase()}|${e.year}`));
+      const fresh = rows.filter(r => !known.has(`${r.title.toLowerCase()}|${r.year}`));
+      if (!fresh.length) return print('Already up to date.');
+      fresh.forEach(r => print(`  <span class="sh-ok">new:</span> ${esc(r.title)} (${r.year || '—'})  ${stars(r.rating)}`));
+      dim(`run 'pull' to merge ${fresh.length} film${fresh.length > 1 ? 's' : ''}`);
+    }},
+
+    push: { use: 'push', desc: 'export enriched history as JSON download', fn() {
+      const blob = new Blob([JSON.stringify(hist(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `moviegit-${CFG.USERNAME}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click(); URL.revokeObjectURL(a.href);
+      ok(`pushed ${hist().length} films → ${a.download}`);
+      dim('(Letterboxd has no write API — push exports locally)');
+    }},
+
+    show: { use: 'show <film>', desc: 'full detail for one film', fn(a) {
+      const { film: e, matches } = findFilm(a.join(' '));
+      if (!e) return err('no film matches: ' + esc(a.join(' ')));
+      print(`${hash(e)} <span class="sh-cmd">${esc(e.title)}</span> <span class="sh-dim">(${e.year || '—'})</span>`);
+      print(`watched:  ${e.watchedDate}${e.rewatch ? ' <span class="sh-accent">(rewatch)</span>' : ''}`);
+      print(`rating:   ${stars(e.rating)}${e.voteAvg ? `  <span class="sh-dim">· TMDB ★${(e.voteAvg / 2).toFixed(1)}</span>` : ''}`);
+      if (e.director) print(`director: ${esc(e.director)}`);
+      if (e.genres?.length) print(`genres:   ${e.genres.map(esc).join(', ')}`);
+      if (e.runtime) print(`runtime:  ${e.runtime} min`);
+      if (e.canon) ok('⚑ canon');
+      if (matches.length > 1) dim(`(+${matches.length - 1} more match${matches.length > 2 ? 'es' : ''})`);
+    }},
+
+    grep: { use: 'grep <query>', desc: 'search your history', fn(a) {
+      const q = a.join(' ').toLowerCase();
+      if (!q) return err('usage: grep &lt;query&gt;');
+      const m = hist().filter(e => e.title.toLowerCase().includes(q) || (e.director || '').toLowerCase().includes(q) || (e.genres || []).some(g => g.toLowerCase().includes(q)));
+      if (!m.length) return dim('no matches');
+      m.slice(0, 20).forEach(e => print(`${hash(e)}  ${esc(e.title)} <span class="sh-dim">(${e.year}) — ${esc(e.director || '?')}</span>  ${stars(e.rating)}`));
+      if (m.length > 20) dim(`…and ${m.length - 20} more`);
+    }},
+
+    diff: { use: 'diff <year1> <year2>', desc: 'taste diff between two years', fn(a) {
+      const [y1, y2] = a;
+      if (!/^\d{4}$/.test(y1 || '') || !/^\d{4}$/.test(y2 || '')) return err('usage: diff 2025 2026');
+      const A = yearStats(y1), B = yearStats(y2);
+      const d = (x, y, unit = '') => { const v = y - x; return `<span class="${v >= 0 ? 'sh-ok' : 'sh-err'}">${v >= 0 ? '+' : ''}${unit === '★' ? v.toFixed(1) : v}${unit}</span>`; };
+      print(`<span class="sh-cmd">diff ${y1}..${y2}</span>`);
+      print(`films:    ${A.count} → ${B.count}  ${d(A.count, B.count)}`);
+      if (A.avg != null && B.avg != null) print(`avg:      ★${A.avg.toFixed(1)} → ★${B.avg.toFixed(1)}  ${d(A.avg, B.avg, '★')}`);
+      print(`hours:    ${A.hours}h → ${B.hours}h  ${d(A.hours, B.hours, 'h')}`);
+      print(`top genres ${y1}: <span class="sh-dim">${A.topG.map(g => g[0] + '×' + g[1]).join(', ') || '—'}</span>`);
+      print(`top genres ${y2}: <span class="sh-dim">${B.topG.map(g => g[0] + '×' + g[1]).join(', ') || '—'}</span>`);
+      const newD = [...B.dirs].filter(x => !A.dirs.has(x));
+      print(`new directors: ${newD.length}${newD.length ? ' <span class="sh-dim">(' + newD.slice(0, 5).map(esc).join(', ') + (newD.length > 5 ? '…' : '') + ')</span>' : ''}`);
+    }},
+
+    shortlog: { use: 'shortlog', desc: 'films grouped by director (like git authors)', fn() {
+      const by = {};
+      hist().forEach(e => { if (!e.director) return; (by[e.director] = by[e.director] || []).push(e); });
+      const rows = Object.entries(by).sort((a, b) => b[1].length - a[1].length).slice(0, 15);
+      if (!rows.length) return dim('no director data yet (enrichment pending)');
+      rows.forEach(([d, films]) => {
+        const rated = films.filter(e => e.rating != null);
+        const avg = rated.length ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1) : '—';
+        print(`${String(films.length).padStart(4)}  <span class="sh-cmd">${esc(d)}</span>  <span class="sh-star">avg ★${avg}</span>`);
+      });
+    }},
+
+    tag: { use: 'tag <film>', desc: 'toggle canon flag on a film', fn(a) {
+      const { film: e } = findFilm(a.join(' '));
+      if (!e) return err('no film matches: ' + esc(a.join(' ')));
+      const h = hist().map(x => x.id === e.id && x.watchedDate === e.watchedDate ? { ...x, canon: !x.canon } : x);
+      refresh(h);
+      e.canon ? dim(`⚑ removed canon: ${esc(e.title)}`) : ok(`⚑ tagged canon: ${esc(e.title)}`);
+    }},
+
+    branch: { use: 'branch [name] [add|rm <film>] [-d]', desc: 'named film collections', fn(a) {
+      const br = getBranches();
+      if (!a.length) {
+        const head = getHead();
+        print(`${!head ? '<span class="sh-ok">*</span> ' : '  '}<span class="sh-cmd">main</span> <span class="sh-dim">(${hist().length})</span>`);
+        Object.keys(br).forEach(n => print(`${head === n ? '<span class="sh-ok">*</span> ' : '  '}<span class="sh-cmd">${esc(n)}</span> <span class="sh-dim">(${br[n].length})</span>`));
+        return;
+      }
+      if (a[0] === '-d') {
+        const n = a[1];
+        if (!br[n]) return err('no such branch: ' + esc(n || ''));
+        delete br[n]; writeK('mg_branches', br);
+        if (getHead() === n) writeK('mg_head', null);
+        return ok(`deleted branch ${esc(n)}`);
+      }
+      const name = a[0], op = a[1];
+      if (!op) {
+        if (br[name]) return err('branch exists: ' + esc(name));
+        br[name] = []; writeK('mg_branches', br);
+        return ok(`created branch ${esc(name)} — add films with: branch ${esc(name)} add &lt;film&gt;`);
+      }
+      if (!br[name]) return err('no such branch: ' + esc(name));
+      const { film: e } = findFilm(a.slice(2).join(' '));
+      if (!e) return err('no film matches: ' + esc(a.slice(2).join(' ')));
+      if (op === 'add') {
+        if (br[name].includes(e.id)) return dim('already on branch');
+        br[name].push(e.id); writeK('mg_branches', br);
+        return ok(`${esc(e.title)} → ${esc(name)}`);
+      }
+      if (op === 'rm') {
+        br[name] = br[name].filter(id => id !== e.id); writeK('mg_branches', br);
+        return ok(`${esc(e.title)} ✕ ${esc(name)}`);
+      }
+      err('usage: branch &lt;name&gt; [add|rm &lt;film&gt;] · branch -d &lt;name&gt;');
+    }},
+
+    checkout: { use: 'checkout <branch|tab|main>', desc: 'switch branch or view', fn(a) {
+      const t = a[0];
+      if (!t) return err('usage: checkout &lt;branch|overview|diary|stats|canon|main&gt;');
+      if (['overview', 'diary', 'stats', 'canon'].includes(t)) { UI._switchTab?.(t); return ok(`switched to view '${t}'`); }
+      if (t === 'main') { writeK('mg_head', null); return ok("switched to branch 'main'"); }
+      if (!getBranches()[t]) return err('no such branch: ' + esc(t));
+      writeK('mg_head', t);
+      ok(`switched to branch '${esc(t)}' — 'log' is now scoped to it`);
+    }},
+
+    stash: { use: 'stash [<film>|list|pop|drop n]', desc: 'watchlist: set films aside', fn(a) {
+      const st = getStash();
+      const sub = a[0];
+      if (!sub || sub === 'list') {
+        if (!st.length) return dim('stash is empty');
+        return st.forEach((s, i) => print(`stash@{${i}}: ${esc(s.title)} <span class="sh-dim">(${s.added})</span>`));
+      }
+      if (sub === 'pop') {
+        if (!st.length) return err('nothing to pop');
+        const s = st.shift(); writeK('mg_stash', st);
+        return ok(`popped: ${esc(s.title)} — go watch it, then 'commit' it`);
+      }
+      if (sub === 'drop') {
+        const i = parseInt(a[1]) || 0;
+        if (!st[i]) return err('no stash entry ' + i);
+        const [s] = st.splice(i, 1); writeK('mg_stash', st);
+        return dim(`dropped: ${esc(s.title)}`);
+      }
+      const title = a.join(' ');
+      st.unshift({ title, added: new Date().toISOString().slice(0, 10) });
+      writeK('mg_stash', st);
+      ok(`stashed: ${esc(title)} (${st.length} in watchlist)`);
+    }},
+
+    revert: { use: 'revert <film>', desc: 'un-log a film (removes locally)', fn(a) {
+      const { film: e } = findFilm(a.join(' '));
+      if (!e) return err('no film matches: ' + esc(a.join(' ')));
+      refresh(hist().filter(x => !(x.id === e.id && x.watchedDate === e.watchedDate)));
+      ok(`reverted ${hash(e)} ${esc(e.title)} (${e.watchedDate})`);
+      dim("note: 'pull' will restore it if still watched on Letterboxd");
+    }},
+
+    blame: { use: 'blame <film>', desc: 'why this watch/rating happened', fn(a) {
+      const { film: e } = findFilm(a.join(' '));
+      if (!e) return err('no film matches: ' + esc(a.join(' ')));
+      const h = hist();
+      print(`${hash(e)} <span class="sh-cmd">${esc(e.title)}</span> <span class="sh-dim">(${e.year})</span> — watched ${e.watchedDate}`);
+      if (e.rating != null && e.voteAvg) {
+        const delta = e.rating - e.voteAvg / 2;
+        print(`rating: ${stars(e.rating)} vs TMDB ★${(e.voteAvg / 2).toFixed(1)} → <span class="${delta >= 0 ? 'sh-ok' : 'sh-err'}">${delta >= 0 ? '+' : ''}${delta.toFixed(1)}</span> ${Math.abs(delta) > 1 ? '(hot take)' : '(consensus)'}`);
+      }
+      (e.genres || []).slice(0, 3).forEach(g => {
+        const gs = h.filter(x => x.rating != null && (x.genres || []).includes(g));
+        if (gs.length > 1) print(`genre ${esc(g)}: your avg <span class="sh-star">★${(gs.reduce((s, x) => s + x.rating, 0) / gs.length).toFixed(1)}</span> <span class="sh-dim">over ${gs.length} films</span>`);
+      });
+      if (e.director) {
+        const ds = h.filter(x => x.director === e.director);
+        const dr = ds.filter(x => x.rating != null);
+        const avg = dr.length ? (dr.reduce((s, x) => s + x.rating, 0) / dr.length).toFixed(1) : '—';
+        print(`director ${esc(e.director)}: ${ds.length} film${ds.length > 1 ? 's' : ''} logged, avg <span class="sh-star">★${avg}</span>${ds.length >= 4 && avg >= 4 ? ' <span class="sh-accent">(trusted)</span>' : ''}`);
+      }
+      const idx = h.slice().sort((x, y) => x.watchedDate.localeCompare(y.watchedDate)).findIndex(x => x.id === e.id && x.watchedDate === e.watchedDate);
+      dim(`commit #${idx + 1} of ${h.length}`);
+    }},
+
+    remote: { use: 'remote [-v]', desc: 'linked Letterboxd origin + sync health', fn() {
+      print(`origin  <span class="sh-accent">https://letterboxd.com/${esc(CFG.USERNAME)}/</span> (fetch)`);
+      print(`origin  <span class="sh-dim">no push — Letterboxd has no write API</span>`);
+      dim(`source: /films/ grid via allorigins.win → cors.eu.org fallback`);
+      const last = STORE.getLastPoll();
+      dim(`last sync: ${last ? Math.round((Date.now() - new Date(last)) / 60000) + 'm ago' : 'never'} · auto-poll every ${CFG.POLL_MS / 60000}m`);
+    }},
+
+    clone: { use: 'clone <letterboxd-user>', desc: 'open someone else\'s dashboard', fn(a) {
+      const u = (a[0] || '').replace(/[^\w-]/g, '');
+      if (!u) return err('usage: clone &lt;letterboxd username&gt;');
+      ok(`cloning ${esc(u)}…`);
+      setTimeout(() => { window.location.search = `?user=${u}`; }, 400);
+    }},
+  };
+
+  // ── shell loop ──────────────────────────────────────────────
+  async function exec(line) {
+    print(`<span class="sh-ok">mg@${esc(CFG.USERNAME)}</span><span class="sh-dim">:~$</span> ${esc(line)}`);
+    const toks = tokenize(line.trim());
+    if (!toks.length) return;
+    let [cmd, ...args] = toks;
+    if (cmd === 'mg') { [cmd, ...args] = args; if (!cmd) return CMDS.help.fn([]); }
+    if (cmd === 'clear') { $out().innerHTML = ''; return; }
+    if (cmd === 'exit') return toggle(false);
+    const c = CMDS[cmd];
+    if (!c) return err(`mg: '${esc(cmd)}' is not a mg command. See 'help'.`);
+    try { await c.fn(args); } catch (ex) { err('error: ' + esc(ex.message)); }
+  }
+
+  function toggle(force) {
+    const el = document.getElementById('mgsh');
+    const open = force ?? !el.classList.contains('open');
+    el.classList.toggle('open', open);
+    if (open) {
+      document.getElementById('mgsh-in').focus();
+      if (!$out().childNodes.length) {
+        dim(`MovieGit shell — ${hist().length} films on origin/${esc(CFG.USERNAME)}. Type 'help'.`);
+      }
+    }
+  }
+
+  function init() {
+    document.getElementById('mgsh-prompt').textContent = `mg@${CFG.USERNAME}:~$`;
+    document.getElementById('mgsh-btn')?.addEventListener('click', () => toggle());
+    const input = document.getElementById('mgsh-in');
+    input.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') {
+        const v = input.value; input.value = '';
+        if (v.trim()) { histBuf.unshift(v); histIdx = -1; }
+        exec(v);
+      } else if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        if (histIdx < histBuf.length - 1) input.value = histBuf[++histIdx] || '';
+      } else if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        input.value = histIdx > 0 ? histBuf[--histIdx] : ((histIdx = -1), '');
+      } else if (ev.key === 'Escape') { toggle(false); }
+    });
+    document.addEventListener('keydown', ev => {
+      if (ev.key === '`' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(ev.target.tagName)) {
+        ev.preventDefault(); toggle();
+      }
+    });
+  }
+
+  return { init, toggle, exec };
+})();
+
+document.addEventListener('DOMContentLoaded', () => { MG.init(); MGSH.init(); });
 
 /* ── Keyboard shortcuts ── */
 document.addEventListener('keydown', e => {

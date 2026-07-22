@@ -1,6 +1,6 @@
 # MovieGit — Project Context for Claude
 
-## Current Status: v1.3 shipped (live films-grid sync), v1.4 in planning
+## Current Status: v1.4 shipped (mg terminal — 18 git commands), v1.5 in planning
 
 > **Note on syncing** (v1.3, the real fix): Letterboxd RSS only publishes **diary** entries. The `islaby` account logs films via *watched + rated* (no diary, no review), so its RSS feed is permanently empty of film watches — RSS sync is a dead end for this usage. **Live sync now scrapes the profile films grid** (`https://letterboxd.com/{user}/films/`) instead. That page lists every watched film with its star rating (`rated-N`, N/2 = stars), newest-watched first, and updates the instant a film is rated + marked watched. It is fetched through a CORS proxy (`allorigins.win/raw` primary, `cors.eu.org` fallback — both verified against Letterboxd; rss2json and corsproxy.io do **not** work for this HTML). The films page has no per-film date, so newly-discovered films get the poll date as `watchedDate` ("commit today" semantics); films already in history keep their real CSV date (poll reuses it, so re-polls upgrade ratings in place without duplicating rows). `SEED_DATA` (from `watched.csv` + `ratings.csv` + `likes/`) still provides the full backfilled history with real dates; bump `SEED_VERSION` when regenerating it. **Enrichment race fix**: `TMDB.enrichBatch` overlays enriched entries onto the latest stored history rather than clobbering with its stale snapshot, so concurrent poll additions survive.
 
@@ -168,6 +168,7 @@ Tabs: **overview · diary · stats · canon**
 | `3` | Stats tab |
 | `4` | Canon tab |
 | `/` | Diary tab + focus search |
+| `` ` `` | Toggle mg terminal |
 
 ---
 
@@ -190,7 +191,15 @@ TMDB      — lazy enrichment: search → details → credits, batched
 RENDER    — all view renderers (overview, diary, stats, canon)
 UI        — tab switching, theme toggle, modal, keyboard shortcuts
 MG        — bootstrap + pollRSS loop + updateSyncStamp
+MGSH      — the mg terminal: drawer UI + 18 git-style commands
 ```
+
+### mg terminal (v1.4)
+Bottom drawer, toggled by backtick or the `>_` header button. Commands registry in `MGSH.CMDS`.
+Implemented: status, log, commit, pull, fetch, push, show, grep, diff, shortlog, tag, branch, checkout, stash, revert, blame, remote, clone (+ help/clear/exit builtins).
+State keys: `mg_branches` (name → film ids), `mg_head` (active branch or null), `mg_stash` (watchlist array).
+`log` is scoped to the checked-out branch. `commit` adds a manual entry (source:'manual') and enriches it. `push` downloads enriched JSON (Letterboxd has no write API). `clone <user>` navigates to `?user=`.
+Note: literal `<...>` in terminal output must be entity-escaped — print() uses innerHTML.
 
 ---
 
