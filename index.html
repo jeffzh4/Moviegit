@@ -2175,7 +2175,11 @@ const CFG = (() => {
     TMDB_IMG_SM: 'https://image.tmdb.org/t/p/w154',
     TMDB_IMG_MD: 'https://image.tmdb.org/t/p/w342',
     RSS_URL:     `https://letterboxd.com/${USERNAME}/rss/`,
-    POLL_MS:     15 * 60 * 1000, // 15 min — stays within rss2json free tier (~96 req/day)
+    // Profile films grid — lists EVERY watched film with its star rating, newest-watched
+    // first. Unlike RSS (diary-only), this updates the instant a film is rated + marked
+    // watched, which is how this account logs. This is the live-sync source of truth.
+    FILMS_URL:   `https://letterboxd.com/${USERNAME}/films/`,
+    POLL_MS:     5 * 60 * 1000, // 5 min — HTML scrape via CORS proxy, no rss2json quota
   };
 })();
 
@@ -2316,151 +2320,117 @@ const DATA = (() => {
 })();
 
 /* ============================================================
-   LETTERBOXD  — RSS poll via rss2json.com
-   Switched from allorigins/corsproxy (both fail on Letterboxd)
-   to rss2json.com which reliably reaches Letterboxd and returns
-   clean JSON — no XML namespace parsing needed.
+   LETTERBOXD  — live sync via profile films grid
+   RSS only publishes DIARY entries. This account logs films by
+   rating + marking watched (no diary, no review), so RSS is
+   permanently empty of watches. The /{user}/films/ page instead
+   lists every watched film with its star rating, newest first,
+   and updates the instant a film is rated. We scrape it through
+   a CORS proxy. This is the real live-sync path.
    ============================================================ */
 const LB = (() => {
 
-  // Parse star rating out of a Letterboxd title string e.g. "★★★½ - Inception"
-  function parseRating(titleStr) {
-    const m = titleStr.match(/^([★½]+)/);
-    if (!m) return null;
-    const s = m[1];
-    return (s.match(/★/g) || []).length + (s.includes('½') ? 0.5 : 0);
+  // Decode the handful of HTML entities Letterboxd emits in film names
+  function decode(s) {
+    return (s || '')
+      .replace(/&amp;/g, '&').replace(/&#0?38;/g, '&')
+      .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
   }
 
-  // Strip star prefix: "★★★½ - Inception" → "Inception"
-  function stripStars(titleStr) {
-    return titleStr.replace(/^[★½\s]+[-–—\s]*/u, '').trim();
+  // "The Odyssey (2026)" → { title:"The Odyssey", year:2026 }
+  function splitName(name) {
+    const m = name.match(/^(.*?)\s*\((\d{4})\)\s*$/);
+    return m ? { title: decode(m[1]), year: parseInt(m[2]) }
+             : { title: decode(name), year: null };
   }
 
-  // Extract 4-digit film year from description HTML e.g. "The Dark Knight (2008)"
-  function parseYear(desc) {
-    const m = desc?.match(/\((\d{4})\)/);
-    return m ? parseInt(m[1]) : null;
-  }
-
-  // Derive slug from a Letterboxd diary URL
-  // e.g. /islaby/film/inception/1/ → "inception"
-  // e.g. /islaby/film/inception/   → "inception"
-  function slugFromLink(link) {
-    const parts   = (link || '').replace(/\/$/, '').split('/').filter(Boolean);
-    const lastSeg = parts[parts.length - 1] || '';
-    return /^\d+$/.test(lastSeg) ? (parts[parts.length - 2] || lastSeg) : lastSeg;
-  }
-
-  async function poll() {
-    const rssUrl = CFG._rssOverride || CFG.RSS_URL;
-
-    // ── Primary: rss2json.com ─────────────────────────────────
-    // Returns clean JSON, confirmed to work with Letterboxd.
-    // Free tier: ~1 req/sec, no key needed.
-    let items = null;
-    let feedImage = null;
-
-    try {
-      // NOTE: `count` param requires a paid rss2json key — omit it (free tier returns ~10 newest)
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
-      const r = await fetch(apiUrl);
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const data = await r.json();
-      if (data.status !== 'ok') throw new Error('rss2json status: ' + data.status + (data.message ? ' — ' + data.message : ''));
-
-      feedImage = data.feed?.image || null;
-      // Diary/film-watch entries link to /film/ — lists link to /list/, so filter by link.
-      // (Letterboxd guids are letterboxd-watch-* / letterboxd-review-*, never "diary".)
-      items = (data.items || []).filter(it => (it.link || '').includes('/film/'));
-      console.log(`[LB] rss2json ✓  total=${data.items?.length}  filmWatches=${items.length}`);
-      if (data.items?.length && !items.length) {
-        console.warn('[LB] feed has items but NO film watches — only lists/reviews. ' +
-                     'Check that your Letterboxd diary is public and you logged films to the diary (not just lists).');
-      }
-    } catch (e) {
-      console.warn('[LB] rss2json failed:', e.message);
-    }
-
-    // ── Fallback: raw XML via allorigins ──────────────────────
-    if (!items) {
+  // Fetch a URL's raw HTML through whichever CORS proxy is up.
+  // allorigins/raw is primary; cors.eu.org is the fallback (both verified on Letterboxd).
+  async function fetchHTML(url) {
+    const bust   = 'cb=' + Math.floor(Date.now() / 60000); // per-minute cache-bust
+    const target = url + (url.includes('?') ? '&' : '?') + bust;
+    const proxies = [
+      u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      u => `https://cors.eu.org/${u}`,
+    ];
+    for (const make of proxies) {
       try {
-        const ts  = Math.floor(Date.now() / 60000);
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl + '?_t=' + ts)}`);
-        if (res.ok) {
-          const json = await res.json();
-          const xml  = json?.contents || '';
-          if (xml.includes('<item')) {
-            console.log('[LB] allorigins fallback ✓');
-            items = parseRawXML(xml);
-            // For allorigins path, extract avatar too
-            const avM = xml.match(/<image>\s*<url>([^<]+)<\/url>/);
-            feedImage = avM?.[1] || null;
-          }
-        }
-      } catch (e) { console.warn('[LB] allorigins fallback failed:', e.message); }
+        const r = await fetch(make(target));
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const html = await r.text();
+        if (html.includes('data-item-slug')) return html;
+        throw new Error('no film grid in response');
+      } catch (e) {
+        console.warn('[LB] proxy failed:', make(target).split('/')[2], '—', e.message);
+      }
     }
+    return null;
+  }
 
-    if (!items) { console.error('[LB] ✗ all sources failed'); return []; }
+  // Parse the films grid into { slug, title, year, rating } rows.
+  // Each film is a LazyPoster react-component:
+  //   data-item-slug="the-odyssey-2026" data-item-name="The Odyssey (2026)"
+  //   ...and (if rated) a sibling  class="... rated-9"  where 9/2 = 4.5 stars.
+  function parseFilms(html) {
+    const items = html.split('<li class="griditem">').slice(1);
+    const rows  = [];
+    for (const li of items) {
+      const slugM = li.match(/data-item-slug="([^"]+)"/);
+      const nameM = li.match(/data-item-name="([^"]*)"/);
+      if (!slugM || !nameM) continue;
+      const ratedM = li.match(/rated-(\d+)/);
+      const { title, year } = splitName(nameM[1]);
+      rows.push({
+        slug:   slugM[1],
+        title,
+        year,
+        rating: ratedM ? parseInt(ratedM[1]) / 2 : null, // Letterboxd 0–10 → 0–5 stars
+      });
+    }
+    return rows;
+  }
 
-    // ── Apply avatar ──────────────────────────────────────────
-    if (feedImage) {
+  // Poll the films grid and map to entry schema.
+  // `existing` (current history) lets us reuse a film's real watchedDate when it's
+  // already known — so re-polling upgrades ratings in place instead of duplicating
+  // the row under today's date. Genuinely new films get today's date ("commit today").
+  async function poll(existing = []) {
+    const url  = CFG._filmsOverride || CFG.FILMS_URL;
+    const html = await fetchHTML(url);
+    if (!html) { console.error('[LB] ✗ films grid unreachable via all proxies'); return []; }
+
+    const rows = parseFilms(html);
+    console.log(`[LB] films grid ✓  ${rows.length} watched films parsed`);
+
+    // Avatar (Letterboxd CDN) — inject into sidebar if not already an <img>
+    const avM = html.match(/https:\/\/a\.ltrbxd\.com\/resized\/avatar\/[^"]+\.jpg/);
+    if (avM) {
       const el = document.getElementById('sidebar-avatar');
       if (el && !el.querySelector('img')) {
-        el.innerHTML = `<img src="${feedImage}" alt="avatar" onerror="this.parentNode.innerHTML='JZ'">`;
+        el.innerHTML = `<img src="${avM[0]}" alt="avatar" onerror="this.parentNode.innerHTML='JZ'">`;
       }
     }
 
-    // ── Map rss2json items → entry schema ─────────────────────
-    return items.map(it => {
-      const rawTitle    = it.title || '';
-      const title       = stripStars(rawTitle);
-      const rating      = parseRating(rawTitle);
-      const watchedDate = (it.pubDate || '').slice(0, 10); // "2025-06-01 00:00:00" → "2025-06-01"
-      const year        = parseYear(it.description || it.content || '');
-      const poster      = it.thumbnail || (it.description?.match(/<img[^>]+src="([^"]+)"/)?.[1]) || null;
-      const link        = it.link || '';
-      const slug        = slugFromLink(link) || title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const today   = new Date().toISOString().slice(0, 10);
+    const dateFor = new Map(
+      existing.map(e => [`${(e.title || '').toLowerCase()}|${e.year}`, e.watchedDate])
+    );
 
+    return rows.filter(r => r.title).map(r => {
+      const key   = `${r.title.toLowerCase()}|${r.year}`;
+      const known = dateFor.get(key);
       return {
-        id: slug, title, year, director: null, rating,
-        watchedDate,
-        rewatch: false,  // rss2json strips namespace fields; TMDB enrichment fills the rest
-        tags: [], letterboxdUrl: link, tmdbId: null, poster,
-        genres: [], runtime: null, country: null,
-        decade: year ? Math.floor(year / 10) * 10 : null,
+        id: r.slug, title: r.title, year: r.year, director: null,
+        rating: r.rating,
+        watchedDate: known || today,
+        rewatch: false,
+        tags: [], letterboxdUrl: `https://letterboxd.com/film/${r.slug}/`,
+        tmdbId: null, poster: null, genres: [], runtime: null, country: null,
+        decade: r.year ? Math.floor(r.year / 10) * 10 : null,
         canon: false, source: 'rss',
       };
-    }).filter(e => {
-      if (!e.title || !e.watchedDate) {
-        console.warn('[LB] dropped (no title/date):', e.title, e.watchedDate);
-        return false;
-      }
-      return true;
     });
-  }
-
-  // ── Raw XML fallback parser (regex-based, avoids namespace issues) ──
-  function parseRawXML(xml) {
-    const blocks = xml.split(/<item[\s>]/).slice(1).map(b => b.split(/<\/item>/)[0]);
-    function v(block, tag) {
-      const m = block.match(new RegExp(`<(?:[\\w-]+:)?${tag}[^>]*>([\\s\\S]*?)</(?:[\\w-]+:)?${tag}>`, 'i'));
-      return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : '';
-    }
-    return blocks.map(b => {
-      const link        = v(b, 'link');
-      // Only film-watch entries (link contains /film/); skip lists/reviews-of-lists
-      if (!link.includes('/film/')) return null;
-      const rawTitle    = v(b, 'title');
-      const title       = stripStars(rawTitle);
-      const rating      = parseRating(rawTitle);
-      const watchedDate = v(b, 'watchedDate') || (() => { try { return new Date(v(b,'pubDate')).toISOString().slice(0,10); } catch { return ''; } })();
-      const year        = parseInt(v(b, 'filmYear')) || parseYear(v(b, 'description')) || null;
-      const poster      = v(b, 'description').match(/<img[^>]+src="([^"]+)"/)?.[1] || null;
-      const slug        = slugFromLink(link) || title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      return { id: slug, title, year, director: null, rating, watchedDate, rewatch: false,
-               tags: [], letterboxdUrl: link, tmdbId: null, poster, genres: [], runtime: null,
-               country: null, decade: year ? Math.floor(year/10)*10 : null, canon: false, source: 'rss' };
-    }).filter(e => e && e.title && e.watchedDate);
   }
 
   return { poll };
@@ -2541,9 +2511,17 @@ const TMDB = (() => {
       setTimeout(() => { bar.style.opacity = '0'; setTimeout(() => { bar.style.width = '0%'; bar.style.opacity = '1'; }, 500); }, 400);
     }
 
-    STORE.setHistory(entries);
+    // Re-read latest history before writing: a concurrent RSS poll may have appended
+    // new films while enrichment was running. Overlay enriched entries onto the current
+    // stored set instead of clobbering it with our stale snapshot.
+    const enrichedByKey = new Map(entries.map(e => [`${e.id}|${e.watchedDate}`, e]));
+    const latest = STORE.getHistory();
+    const merged = latest.length
+      ? latest.map(e => enrichedByKey.get(`${e.id}|${e.watchedDate}`) || e)
+      : entries;
+    STORE.setHistory(merged);
     if (done > 0) UI.toast(`Enriched ${done} film${done > 1 ? 's' : ''} with TMDB data ✓`, 'success');
-    if (onDone) onDone(entries);
+    if (onDone) onDone(merged);
   }
 
   return { enrich, enrichBatch };
@@ -4388,8 +4366,9 @@ const MG = (() => {
       if (nameEl)   nameEl.textContent = '@' + urlUser;
       if (handleEl) { handleEl.textContent = '@' + urlUser; handleEl.href = `https://letterboxd.com/${urlUser}/`; }
 
-      // Use guest-scoped RSS URL (override CFG inline)
-      CFG._rssOverride = `https://letterboxd.com/${urlUser}/rss/`;
+      // Use guest-scoped source URLs (override CFG inline)
+      CFG._rssOverride   = `https://letterboxd.com/${urlUser}/rss/`;
+      CFG._filmsOverride = `https://letterboxd.com/${urlUser}/films/`;
     }
 
     // Seed localStorage from baked data (skip for guest views).
@@ -4442,10 +4421,10 @@ const MG = (() => {
   }
 
   async function pollRSS() {
-    const entries = await LB.poll();
+    const current = STORE.getHistory();
+    const entries = await LB.poll(current);
     if (!entries.length) { STORE.setLastPoll(); updateSyncStamp(); return; }
 
-    const current = STORE.getHistory();
     const merged  = DATA.merge(current, entries);
     if (merged.length > current.length) {
       const n = merged.length - current.length;

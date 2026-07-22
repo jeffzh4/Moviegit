@@ -257,7 +257,13 @@ Also in the portfolio:
 
 ## Changelog
 
-### v1.2.1 (Current)
+### v1.3 (Current)
+- ✅ **Live sync that actually works** — scrapes the profile films grid (`/{user}/films/`) instead of RSS. Every watched+rated film appears the moment it's rated, no diary entry or review required
+- ✅ CORS proxy chain: `allorigins.win/raw` primary → `cors.eu.org` fallback (both verified on Letterboxd HTML)
+- ✅ Fixed enrichment race that dropped freshly-synced films (enrich now overlays onto latest history, never clobbers)
+- ✅ Poll interval 5 min (HTML scrape, no rss2json quota); real avatar pulled from films page
+
+### v1.2.1
 - ✅ Refreshed seed data from latest Letterboxd export — now 134 films (was ~115), including recent 2026 watches
 - ✅ `SEED_VERSION` mechanism — updated seed merges into existing users' data without wiping TMDB enrichment
 - ✅ Diagnosed RSS limitation: feed only carries diary entries; watched+rated films (this account's method) aren't published to RSS
