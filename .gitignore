@@ -1,5 +1,12 @@
+# graphify knowledge-graph output (regenerate with /graphify, don't ship)
+graphify-out/
+
+# Claude Code project-local settings
+.claude/
+
+# CLI package — installed deps, npm logs (none should exist, dependencies are {})
+cli/node_modules/
+npm-debug.log*
+
+# OS cruft
 .DS_Store
-data.zip
-lbdata/
-moviegit_dashboard_template.html
-*.bak
