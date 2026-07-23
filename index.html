@@ -4555,17 +4555,20 @@ const UI = (() => {
     document.getElementById('settings-save')?.addEventListener('click', () => {
       const username = document.getElementById('settings-username').value.trim();
       const tmdbKey  = document.getElementById('settings-tmdb-key').value.trim();
-      // Switching to a genuinely different account (non-empty, differs from the
-      // currently active username) — clear any cached history so the next load
-      // doesn't carry over the maintainer's seeded films (or another account's
-      // history) into the new account's view.
-      if (username && username.toLowerCase() !== CFG.USERNAME.toLowerCase()) {
+      // Clear cached history whenever the resulting identity differs from the
+      // currently active one — covers custom->custom, custom->default (blank
+      // field), and default->custom uniformly, so no account's history ever
+      // lingers mislabeled as a different account's.
+      const resultingUsername = username || CFG.DEFAULT_USERNAME;
+      if (resultingUsername.toLowerCase() !== CFG.USERNAME.toLowerCase()) {
         STORE.clearHistorySeed();
       }
       CFG.saveUserSettings({ username: username || null, tmdbKey: tmdbKey || null });
       window.location.reload();
     });
     document.getElementById('settings-reset')?.addEventListener('click', () => {
+      // Resetting away from a custom username is also an identity change.
+      if (CFG.hasCustomUsername()) STORE.clearHistorySeed();
       localStorage.removeItem('mg_user_settings');
       window.location.reload();
     });
