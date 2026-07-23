@@ -10,3 +10,9 @@ npm-debug.log*
 
 # OS cruft
 .DS_Store
+
+# Pre-existing project exclusions
+data.zip
+lbdata/
+moviegit_dashboard_template.html
+*.bak
