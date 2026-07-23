@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dashboard-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Check index.html brace balance
+        run: python3 scripts/check-syntax.py index.html
+
+  cli-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: node --check every CLI source file
+        run: |
+          set -e
+          for f in cli/bin/mg.js cli/src/*.js; do
+            echo "checking $f"
+            node --check "$f"
+          done
+      - name: CLI --help runs without crashing
+        run: node cli/bin/mg.js --help
+      - name: npm pack dry-run (validates package.json + files field)
+        working-directory: cli
+        run: npm pack --dry-run
