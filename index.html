@@ -1367,6 +1367,13 @@
       color: var(--text-secondary);
       margin: 0 0 8px 0;
     }
+    .modal-hint { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+    .modal-hint-inline { font-weight: 400; color: var(--text-tertiary); }
+    #settings-username, #settings-tmdb-key {
+      width: 100%; padding: 8px 10px; margin-top: 6px;
+      background: var(--bg-tertiary); border: 1px solid var(--border);
+      border-radius: var(--r-md); color: var(--text-primary); font: inherit;
+    }
     .modal-tech-list {
       display: flex;
       flex-wrap: wrap;
@@ -1695,6 +1702,7 @@
 <symbol id="i-terminal-2" viewBox="0 0 24 24"><path d="M5 7l5 5-5 5M13 17h6"/></symbol>
 <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 10.8l7.4-3.6M8.3 13.2l7.4 3.6"/></symbol>
 <symbol id="i-help-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 17v.01"/><path d="M12 14a2.5 2.5 0 10-2.5-3"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></symbol>
 <symbol id="i-moon" viewBox="0 0 24 24"><path d="M18 15.5A8 8 0 018.5 6 7.5 7.5 0 1018 15.5z"/></symbol>
 <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></symbol>
 <symbol id="i-movie" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v14M16 5v14M3 9.5h5M3 14.5h5M16 9.5h5M16 14.5h5"/></symbol>
@@ -1777,6 +1785,9 @@
       </button>
       <button class="icon-btn tipped" id="share-btn" aria-label="Share dashboard" data-tip="Share dashboard">
         <svg class="ic"><use href="#i-share"/></svg>
+      </button>
+      <button class="icon-btn tipped" id="settings-btn" aria-label="Settings" data-tip="Settings">
+        <svg class="ic"><use href="#i-settings"/></svg>
       </button>
       <button class="icon-btn tipped" id="about-btn" aria-label="About MovieGit" data-tip="About MovieGit">
         <svg class="ic"><use href="#i-help-circle"/></svg>
@@ -2231,6 +2242,31 @@
 </div>
 
 <!-- About Modal -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Settings</h2>
+      <button class="icon-btn" id="settings-close" aria-label="Close settings">
+        <svg class="ic"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">letterboxd username</div>
+      <input type="text" id="settings-username" placeholder="e.g. islaby" autocomplete="off" spellcheck="false">
+      <p class="modal-hint">Leave blank to use the default (<code id="settings-default-user"></code>).</p>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">tmdb api key <span class="modal-hint-inline">(optional)</span></div>
+      <input type="text" id="settings-tmdb-key" placeholder="your own free TMDB v3 key" autocomplete="off" spellcheck="false">
+      <p class="modal-hint">Get one free at <a class="modal-link" href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a>. Leave blank to use the built-in demo key.</p>
+    </div>
+    <div class="modal-section">
+      <button class="btn-primary" id="settings-save">Save &amp; reload</button>
+      <button class="btn-secondary" id="settings-reset">Reset to default</button>
+    </div>
+    <p class="modal-hint">Stored only in your browser's localStorage. Never sent anywhere except to Letterboxd and TMDB directly.</p>
+  </div>
+</div>
 <div class="modal-overlay" id="about-modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -2295,18 +2331,38 @@
    CONFIG
    ============================================================ */
 const CFG = (() => {
-  // Username for Letterboxd RSS polling
-  const USERNAME = 'islaby';
+  // Default username — used unless a visitor sets their own via Settings.
+  const DEFAULT_USERNAME = 'islaby';
 
-  // TMDB key — split + base64 encoded, not plaintext
+  // Default TMDB key — split + base64 encoded, not plaintext. Used unless a
+  // visitor supplies their own (free) key via Settings.
   const _p = ['YTE3ZGM1OTZkMzg1OGFkOQ==', 'N2Q5YjA2MTA3ODYyMDljOQ=='];
-  const TMDB_KEY = (() => {
+  const DEFAULT_TMDB_KEY = (() => {
     try { return _p.map(atob).join(''); } catch { return ''; }
   })();
+
+  // Visitor-supplied overrides, read once at load. Stored under a key distinct
+  // from the CLI's ~/.config/moviegit/config.json (that's a different surface).
+  function readUserSettings() {
+    try { return JSON.parse(localStorage.getItem('mg_user_settings')) || {}; }
+    catch { return {}; }
+  }
+  const _settings = readUserSettings();
+
+  const USERNAME  = (_settings.username && _settings.username.trim()) || DEFAULT_USERNAME;
+  const TMDB_KEY  = (_settings.tmdbKey && _settings.tmdbKey.trim())   || DEFAULT_TMDB_KEY;
+
+  function saveUserSettings(patch) {
+    const next = { ..._settings, ...patch };
+    localStorage.setItem('mg_user_settings', JSON.stringify(next));
+  }
 
   return {
     USERNAME,
     TMDB_KEY,
+    DEFAULT_USERNAME,
+    hasCustomUsername: () => Boolean(_settings.username && _settings.username.trim()),
+    saveUserSettings,
     TMDB_BASE:   'https://api.themoviedb.org/3',
     TMDB_IMG_SM: 'https://image.tmdb.org/t/p/w154',
     TMDB_IMG_MD: 'https://image.tmdb.org/t/p/w342',
@@ -4473,6 +4529,30 @@ const UI = (() => {
       if (e.key === 'Escape' && modal.classList.contains('open')) {
         modal.classList.remove('open');
       }
+    });
+
+    // Settings modal
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsBtn   = document.getElementById('settings-btn');
+    settingsBtn?.addEventListener('click', () => {
+      document.getElementById('settings-username').value = CFG.hasCustomUsername() ? CFG.USERNAME : '';
+      document.getElementById('settings-default-user').textContent = CFG.DEFAULT_USERNAME;
+      const saved = JSON.parse(localStorage.getItem('mg_user_settings') || '{}');
+      document.getElementById('settings-tmdb-key').value = saved.tmdbKey || '';
+      settingsModal.classList.add('open');
+    });
+    document.getElementById('settings-close')?.addEventListener('click', () => settingsModal.classList.remove('open'));
+    settingsModal?.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.remove('open'); });
+
+    document.getElementById('settings-save')?.addEventListener('click', () => {
+      const username = document.getElementById('settings-username').value.trim();
+      const tmdbKey  = document.getElementById('settings-tmdb-key').value.trim();
+      CFG.saveUserSettings({ username: username || null, tmdbKey: tmdbKey || null });
+      window.location.reload();
+    });
+    document.getElementById('settings-reset')?.addEventListener('click', () => {
+      localStorage.removeItem('mg_user_settings');
+      window.location.reload();
     });
   }
 
