@@ -2404,6 +2404,14 @@ const STORE = (() => {
     setTheme:      t     => write(K.theme, t),
     getSeedVer:    ()    => read(K.seedVer),
     setSeedVer:    v     => write(K.seedVer, v),
+    // Clears cached history + seed-tracking state — used when a visitor switches
+    // to a different custom username so the maintainer's stale seeded films
+    // (from a prior default/anonymous session) don't carry over.
+    clearHistorySeed: () => {
+      localStorage.removeItem(K.history);
+      localStorage.removeItem(K.csvDone);
+      localStorage.removeItem(K.seedVer);
+    },
   };
 })();
 
@@ -4547,6 +4555,13 @@ const UI = (() => {
     document.getElementById('settings-save')?.addEventListener('click', () => {
       const username = document.getElementById('settings-username').value.trim();
       const tmdbKey  = document.getElementById('settings-tmdb-key').value.trim();
+      // Switching to a genuinely different account (non-empty, differs from the
+      // currently active username) — clear any cached history so the next load
+      // doesn't carry over the maintainer's seeded films (or another account's
+      // history) into the new account's view.
+      if (username && username.toLowerCase() !== CFG.USERNAME.toLowerCase()) {
+        STORE.clearHistorySeed();
+      }
       CFG.saveUserSettings({ username: username || null, tmdbKey: tmdbKey || null });
       window.location.reload();
     });
@@ -4618,7 +4633,10 @@ const MG = (() => {
     // SEED_VERSION lets a refreshed seed merge into existing users' data
     // without wiping their TMDB enrichment cache or RSS-added entries.
     let history = STORE.getHistory();
-    if (!isGuest) {
+    // Only seed with the maintainer's SEED_DATA on the maintainer's own default
+    // page — never for a ?user= guest view, and never for a visitor who has set
+    // their own username via Settings (CFG.hasCustomUsername()).
+    if (!isGuest && !CFG.hasCustomUsername()) {
       if (!history.length) {
         history = SEED_DATA;
         STORE.setHistory(history);
