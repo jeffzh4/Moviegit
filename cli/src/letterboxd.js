@@ -10,21 +10,11 @@
  * public write API; `commit` drives the same form the website itself posts.
  */
 
+import { decodeEntities, splitName, parseFilms as parseFilmsDomain } from './domain.js';
+
+export { decodeEntities, splitName };
+
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
-
-export function decodeEntities(s) {
-  return (s || '')
-    .replace(/&amp;/g, '&').replace(/&#0?38;/g, '&')
-    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-}
-
-/** "The Odyssey (2026)" -> { title, year } */
-export function splitName(name) {
-  const m = name.match(/^(.*?)\s*\((\d{4})\)\s*$/);
-  return m ? { title: decodeEntities(m[1]), year: Number(m[2]) }
-           : { title: decodeEntities(name), year: null };
-}
 
 async function get(url, opts = {}) {
   const res = await fetch(url, {
@@ -35,28 +25,8 @@ async function get(url, opts = {}) {
   return res;
 }
 
-/**
- * Parse a films-grid page into rows.
- * Each film is a LazyPoster react-component carrying data-item-slug /
- * data-item-name, plus a `rated-N` class (N/2 = stars) when you've rated it.
- */
-export function parseFilms(html) {
-  const rows = [];
-  for (const li of html.split('<li class="griditem">').slice(1)) {
-    const slug = li.match(/data-item-slug="([^"]+)"/);
-    const name = li.match(/data-item-name="([^"]*)"/);
-    if (!slug || !name) continue;
-    const rated = li.match(/rated-(\d+)/);
-    const { title, year } = splitName(name[1]);
-    rows.push({
-      slug: slug[1],
-      title,
-      year,
-      rating: rated ? Number(rated[1]) / 2 : null,
-    });
-  }
-  return rows;
-}
+/** Parse a films-grid page into rows — see cli/src/domain.js for the shape. */
+export const parseFilms = parseFilmsDomain;
 
 /**
  * Fetch watched films for a user.

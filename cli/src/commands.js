@@ -5,6 +5,10 @@ import { fetchFilms, fetchProfile, resolveFilm } from './letterboxd.js';
 import { enrich, hasKey } from './tmdb.js';
 import { AUTH_HELP, logFilm, whoami, getCookie } from './auth.js';
 import { c, stars, mgHash, bar, delta, pad, padStart, heading, die } from './format.js';
+import {
+  avgRating, findFilm as findFilmDomain, ratingDelta, isHotTake, isTrustedDirector,
+  computeCompat, isMergeConflict, summarize,
+} from './domain.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const log = console.log;
@@ -49,17 +53,13 @@ function truncNote(truncated, films) {
 }
 
 const rated = (films) => films.filter((f) => f.rating != null);
-const avg = (films) => {
-  const r = rated(films);
-  return r.length ? r.reduce((s, f) => s + f.rating, 0) / r.length : null;
-};
+const avg = avgRating;
 
+// findFilm here matches the pre-existing local contract (returns the film
+// directly, not {film, matches}) — same 3-tier match as the browser
+// dashboard's MGSH commands, via domain/letterboxd.mjs.
 function findFilm(films, q) {
-  const n = (q || '').toLowerCase();
-  if (!n) return null;
-  return films.find((f) => f.title.toLowerCase() === n)
-      || films.find((f) => f.title.toLowerCase().startsWith(n))
-      || films.find((f) => f.title.toLowerCase().includes(n));
+  return findFilmDomain(films, q).film;
 }
 
 /* ── commands ─────────────────────────────────────────────────────────── */
@@ -216,21 +216,15 @@ export const commands = {
 
   async wrapped(args, flags) {
     const { user, films } = await load(flags, { needEnrich: true });
-    const a = avg(films);
-    const top = rated(films).sort((x, y) => y.rating - x.rating);
-    const by = {};
-    films.forEach((f) => { if (f.director) by[f.director] = (by[f.director] || 0) + 1; });
-    const topDir = Object.entries(by).sort((x, y) => y[1] - x[1])[0];
-    const gc = {};
-    films.forEach((f) => (f.genres || []).forEach((g) => { gc[g] = (gc[g] || 0) + 1; }));
-    const mins = films.reduce((s, f) => s + (f.runtime || 0), 0);
+    // Same summary shape as the browser dashboard's mg wrapped — see
+    // domain/letterboxd.mjs summarize().
+    const s = summarize(films);
     log(heading(`━━ MovieGit Wrapped · @${user} ━━`));
-    log(`${c.bold(films.length)} films${mins ? ` · ${Math.round(mins / 60)}h · ${(mins / 1440).toFixed(1)} days of cinema` : ''}`);
-    if (a) log(`average rating: ${c.yellow('★' + a.toFixed(2))}`);
-    if (top[0]) log(`top rated: ${top[0].title} ${stars(top[0].rating)}`);
-    if (topDir) log(`most-watched director: ${topDir[0]} ${c.gray(`(${topDir[1]})`)}`);
-    const genres = Object.entries(gc).sort((x, y) => y[1] - x[1]).slice(0, 3).map((g) => g[0]);
-    if (genres.length) log(`top genres: ${c.gray(genres.join(' · '))}`);
+    log(`${c.bold(s.count)} films${s.totalMin ? ` · ${s.hours}h · ${(s.totalMin / 1440).toFixed(1)} days of cinema` : ''}`);
+    if (s.avg != null) log(`average rating: ${c.yellow('★' + s.avg.toFixed(2))}`);
+    if (s.topRated) log(`top rated: ${s.topRated.title} ${stars(s.topRated.rating)}`);
+    if (s.topDirector) log(`most-watched director: ${s.topDirector[0]} ${c.gray(`(${s.topDirector[1]})`)}`);
+    if (s.topGenres.length) log(`top genres: ${c.gray(s.topGenres.join(' · '))}`);
   },
 
   async blame(args, flags) {
@@ -239,17 +233,17 @@ export const commands = {
     if (!f) die(`no film matches: ${args.join(' ')}`);
     log(`${c.magenta(mgHash(f.title, f.year))} ${c.bold(f.title)} ${c.gray(`(${f.year || '—'})`)}`);
     if (f.rating != null && f.voteAvg) {
-      const d = f.rating - f.voteAvg / 2;
-      log(`rating: ${stars(f.rating)} vs TMDB ★${(f.voteAvg / 2).toFixed(1)} → ${delta(d, '★')} ${Math.abs(d) > 1 ? c.yellow('(hot take)') : c.gray('(consensus)')}`);
+      const d = ratingDelta(f.rating, f.voteAvg);
+      log(`rating: ${stars(f.rating)} vs TMDB ★${(f.voteAvg / 2).toFixed(1)} → ${delta(d, '★')} ${isHotTake(d) ? c.yellow('(hot take)') : c.gray('(consensus)')}`);
     }
     (f.genres || []).slice(0, 3).forEach((g) => {
       const gs = rated(films.filter((x) => (x.genres || []).includes(g)));
-      if (gs.length > 1) log(`genre ${pad(g, 14)} your avg ${c.yellow('★' + (avg(gs)).toFixed(1))} ${c.gray(`over ${gs.length} films`)}`);
+      if (gs.length > 1) log(`genre ${pad(g, 14)} your avg ${c.yellow('★' + avgRating(gs).toFixed(1))} ${c.gray(`over ${gs.length} films`)}`);
     });
     if (f.director) {
       const ds = films.filter((x) => x.director === f.director);
-      const a = avg(ds);
-      log(`director ${f.director}: ${ds.length} film(s), avg ${a ? c.yellow('★' + a.toFixed(1)) : '—'}${ds.length >= 4 && a >= 4 ? c.cyan(' (trusted)') : ''}`);
+      const a = avgRating(ds);
+      log(`director ${f.director}: ${ds.length} film(s), avg ${a ? c.yellow('★' + a.toFixed(1)) : '—'}${isTrustedDirector(ds.length, a) ? c.cyan(' (trusted)') : ''}`);
     }
   },
 
@@ -267,13 +261,14 @@ export const commands = {
     });
     const overlap = theirs.filter((t) => mine.has(`${t.title.toLowerCase()}|${t.year}`)).length;
     if (!shared.length) return log(c.gray(`no shared rated films with @${other}`));
-    const mean = shared.reduce((s, x) => s + Math.abs(x.mine - x.theirs), 0) / shared.length;
-    const compat = Math.max(0, Math.round((1 - mean / 4.5) * 100));
+    // Same compatibility formula as the browser dashboard's mg merge — see
+    // domain/letterboxd.mjs computeCompat().
+    const { compat, meanDiff } = computeCompat(shared);
     log(heading(`merge @${user} ← @${other}`));
     log(`${overlap} films both watched · ${shared.length} both rated`);
     const col = compat >= 70 ? c.green : compat >= 45 ? c.yellow : c.red;
-    log(`taste compatibility: ${col(compat + '%')} ${c.gray(`(mean Δ ${mean.toFixed(2)}★)`)}`);
-    const conflicts = shared.filter((x) => Math.abs(x.mine - x.theirs) >= 2)
+    log(`taste compatibility: ${col(compat + '%')} ${c.gray(`(mean Δ ${meanDiff.toFixed(2)}★)`)}`);
+    const conflicts = shared.filter((x) => isMergeConflict(x.mine, x.theirs))
       .sort((p, q) => Math.abs(q.mine - q.theirs) - Math.abs(p.mine - p.theirs));
     if (!conflicts.length) return log(c.green('no merge conflicts — aligned taste'));
     log(c.red('merge conflicts') + c.gray(' (rated ≥2★ apart):'));

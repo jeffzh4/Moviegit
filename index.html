@@ -2416,6 +2416,175 @@ const STORE = (() => {
 })();
 
 /* ============================================================
+   MG_DOMAIN — generated from cli/src/domain.js. DO NOT EDIT BY HAND.
+   Run `python3 scripts/sync-domain.py` after changing cli/src/domain.js.
+   This is the single source of truth for logic shared with the mg CLI
+   (cli/, which imports cli/src/domain.js directly) — parsing, rating
+   math, film lookup, TMDB field extraction, and the mg-terminal command
+   formulas (blame/merge/wrapped). index.html ships as one self-contained
+   file with no build step, so this block is inlined at dev time rather
+   than imported at runtime; scripts/check-domain-sync.py verifies it
+   hasn't drifted from the source module.
+   ============================================================ */
+const MG_DOMAIN = (() => {
+/* DOMAIN:BEGIN */
+// ── HTML entity decoding & name parsing ─────────────────────────────────
+
+function decodeEntities(s) {
+  return (s || '')
+    .replace(/&amp;/g, '&').replace(/&#0?38;/g, '&')
+    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+/** "The Odyssey (2026)" -> { title: "The Odyssey", year: 2026 } */
+function splitName(name) {
+  const m = name.match(/^(.*?)\s*\((\d{4})\)\s*$/);
+  return m ? { title: decodeEntities(m[1]), year: Number(m[2]) }
+           : { title: decodeEntities(name), year: null };
+}
+
+// ── Films-grid parsing ───────────────────────────────────────────────────
+
+/**
+ * Parse a Letterboxd films-grid page into { slug, title, year, rating }
+ * rows. Each film is a LazyPoster react-component carrying data-item-slug /
+ * data-item-name, plus a `rated-N` class (N/2 = stars) when rated.
+ */
+function parseFilms(html) {
+  const rows = [];
+  for (const li of html.split('<li class="griditem">').slice(1)) {
+    const slugM = li.match(/data-item-slug="([^"]+)"/);
+    const nameM = li.match(/data-item-name="([^"]*)"/);
+    if (!slugM || !nameM) continue;
+    const ratedM = li.match(/rated-(\d+)/);
+    const { title, year } = splitName(nameM[1]);
+    rows.push({
+      slug: slugM[1],
+      title,
+      year,
+      rating: ratedM ? Number(ratedM[1]) / 2 : null, // Letterboxd 0–10 -> 0–5 stars
+    });
+  }
+  return rows;
+}
+
+// ── Rating math & film lookup ────────────────────────────────────────────
+
+/** Average rating across a films array, ignoring unrated entries. */
+function avgRating(films) {
+  const rated = films.filter(e => e.rating != null);
+  return rated.length ? rated.reduce((s, e) => s + e.rating, 0) / rated.length : null;
+}
+
+/** Fuzzy film lookup: exact title -> starts-with -> includes. */
+function findFilm(films, q) {
+  if (!q) return { film: null, matches: [] };
+  const needle = q.toLowerCase();
+  let matches = films.filter(e => e.title.toLowerCase() === needle);
+  if (!matches.length) matches = films.filter(e => e.title.toLowerCase().startsWith(needle));
+  if (!matches.length) matches = films.filter(e => e.title.toLowerCase().includes(needle));
+  return { film: matches[0] || null, matches };
+}
+
+// ── TMDB enrichment shape ────────────────────────────────────────────────
+// URL builders and response-field extraction are pure; the actual fetch()
+// call stays in each adapter (browser fetch vs Node fetch, different
+// caching, different progress reporting).
+
+function tmdbSearchUrl(base, apiKey, title, year) {
+  const q = encodeURIComponent(title);
+  const yr = year ? `&year=${year}` : '';
+  return `${base}/search/movie?api_key=${apiKey}&query=${q}${yr}`;
+}
+
+function tmdbDetailsUrl(base, apiKey, tmdbId) {
+  return `${base}/movie/${tmdbId}?api_key=${apiKey}&append_to_response=credits`;
+}
+
+/**
+ * Extract the fields both surfaces enrich a film with, from raw TMDB
+ * search + details JSON. Returns null if the search had no hit (a TMDB
+ * miss — caller decides how to negative-cache that).
+ */
+function extractTmdbFields(searchJson, detailsJson) {
+  const hit = searchJson?.results?.[0];
+  if (!hit) return null;
+  const dd = detailsJson || {};
+  return {
+    tmdbId: hit.id,
+    director: dd.credits?.crew?.find(c => c.job === 'Director')?.name || null,
+    genres: (dd.genres || []).map(g => g.name),
+    runtime: dd.runtime || null,
+    country: dd.production_countries?.[0]?.iso_3166_1 || null,
+    posterPath: dd.poster_path || null,
+    voteAvg: dd.vote_average || null,
+    voteCount: dd.vote_count || null,
+    popularity: dd.popularity || null,
+  };
+}
+
+// ── mg terminal command math ─────────────────────────────────────────────
+// The formulas behind blame / merge / wrapped / status — previously
+// reimplemented independently in index.html's MGSH.CMDS and cli/src/commands.js.
+
+/** blame: how a rating compares to TMDB consensus. */
+function ratingDelta(rating, voteAvg) {
+  if (rating == null || voteAvg == null) return null;
+  return rating - voteAvg / 2;
+}
+function isHotTake(delta) {
+  return delta != null && Math.abs(delta) > 1;
+}
+
+/** blame: whether a director has enough logged films at a high enough avg to call "trusted". */
+function isTrustedDirector(filmCount, avg) {
+  return filmCount >= 4 && avg != null && avg >= 4;
+}
+
+/** merge: taste-compatibility between two users' shared ratings. */
+function computeCompat(sharedPairs) {
+  if (!sharedPairs.length) return { compat: null, meanDiff: null };
+  const meanDiff = sharedPairs.reduce((s, x) => s + Math.abs(x.mine - x.theirs), 0) / sharedPairs.length;
+  const compat = Math.max(0, Math.round((1 - meanDiff / 4.5) * 100));
+  return { compat, meanDiff };
+}
+function isMergeConflict(mine, theirs) {
+  return Math.abs(mine - theirs) >= 2;
+}
+
+/** wrapped / status: shared summary stats for a films array. */
+function summarize(films) {
+  const rated = films.filter(e => e.rating != null);
+  const totalMin = films.reduce((s, e) => s + (e.runtime || 0), 0);
+  const byDirector = {};
+  films.forEach(e => { if (e.director) byDirector[e.director] = (byDirector[e.director] || 0) + 1; });
+  const topDirector = Object.entries(byDirector).sort((a, b) => b[1] - a[1])[0] || null;
+  const byGenre = {};
+  films.forEach(e => (e.genres || []).forEach(g => { byGenre[g] = (byGenre[g] || 0) + 1; }));
+  const topGenres = Object.entries(byGenre).sort((a, b) => b[1] - a[1]).slice(0, 3).map(g => g[0]);
+  const topRated = rated.slice().sort((a, b) => b.rating - a.rating)[0] || null;
+  return {
+    count: films.length,
+    ratedCount: rated.length,
+    avg: avgRating(films),
+    totalMin,
+    hours: Math.round(totalMin / 60),
+    topDirector,
+    topGenres,
+    topRated,
+  };
+}
+/* DOMAIN:END */
+  return {
+    decodeEntities, splitName, parseFilms, avgRating, findFilm,
+    tmdbSearchUrl, tmdbDetailsUrl, extractTmdbFields,
+    ratingDelta, isHotTake, isTrustedDirector,
+    computeCompat, isMergeConflict, summarize,
+  };
+})();
+
+/* ============================================================
    DATA  — parsing & merging
    ============================================================ */
 const DATA = (() => {
@@ -2516,28 +2685,9 @@ const DATA = (() => {
     try { return new Date(s).toISOString().slice(0, 10); } catch { return s; }
   }
 
-  // Average rating across a films array, ignoring unrated entries.
-  // Shared by RENDER and MGSH so every "avg ★" number in the app comes from
-  // one formula — previously reimplemented inline at 7+ call sites.
-  function avgRating(films) {
-    const rated = films.filter(e => e.rating != null);
-    return rated.length ? rated.reduce((s, e) => s + e.rating, 0) / rated.length : null;
-  }
-
-  // Fuzzy film lookup over an arbitrary films array: exact title → starts-with
-  // → includes. Shared so every command/view resolves an ambiguous title the
-  // same way — previously MGSH's own commands duplicated this with a
-  // 2-tier version that could disagree with the 3-tier canonical match.
-  function findFilm(films, q) {
-    if (!q) return { film: null, matches: [] };
-    const needle = q.toLowerCase();
-    let matches = films.filter(e => e.title.toLowerCase() === needle);
-    if (!matches.length) matches = films.filter(e => e.title.toLowerCase().startsWith(needle));
-    if (!matches.length) matches = films.filter(e => e.title.toLowerCase().includes(needle));
-    return { film: matches[0] || null, matches };
-  }
-
-  return { parseCSV, merge, normalizeDate, avgRating, findFilm };
+  // avgRating / findFilm live in MG_DOMAIN — the same functions cli/ imports
+  // from cli/src/domain.js, kept in sync via scripts/sync-domain.py.
+  return { parseCSV, merge, normalizeDate, avgRating: MG_DOMAIN.avgRating, findFilm: MG_DOMAIN.findFilm };
 })();
 
 /* ============================================================
@@ -2550,21 +2700,6 @@ const DATA = (() => {
    a CORS proxy. This is the real live-sync path.
    ============================================================ */
 const LB = (() => {
-
-  // Decode the handful of HTML entities Letterboxd emits in film names
-  function decode(s) {
-    return (s || '')
-      .replace(/&amp;/g, '&').replace(/&#0?38;/g, '&')
-      .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
-      .replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-  }
-
-  // "The Odyssey (2026)" → { title:"The Odyssey", year:2026 }
-  function splitName(name) {
-    const m = name.match(/^(.*?)\s*\((\d{4})\)\s*$/);
-    return m ? { title: decode(m[1]), year: parseInt(m[2]) }
-             : { title: decode(name), year: null };
-  }
 
   // Fetch a URL's raw HTML through whichever CORS proxy is up.
   // allorigins/raw is primary; cors.eu.org is the fallback (both verified on Letterboxd).
@@ -2593,26 +2728,10 @@ const LB = (() => {
   }
 
   // Parse the films grid into { slug, title, year, rating } rows.
-  // Each film is a LazyPoster react-component:
-  //   data-item-slug="the-odyssey-2026" data-item-name="The Odyssey (2026)"
-  //   ...and (if rated) a sibling  class="... rated-9"  where 9/2 = 4.5 stars.
+  // Canonical implementation lives in cli/src/domain.js (MG_DOMAIN here)
+  // — the same parser cli/ imports directly.
   function parseFilms(html) {
-    const items = html.split('<li class="griditem">').slice(1);
-    const rows  = [];
-    for (const li of items) {
-      const slugM = li.match(/data-item-slug="([^"]+)"/);
-      const nameM = li.match(/data-item-name="([^"]*)"/);
-      if (!slugM || !nameM) continue;
-      const ratedM = li.match(/rated-(\d+)/);
-      const { title, year } = splitName(nameM[1]);
-      rows.push({
-        slug:   slugM[1],
-        title,
-        year,
-        rating: ratedM ? parseInt(ratedM[1]) / 2 : null, // Letterboxd 0–10 → 0–5 stars
-      });
-    }
-    return rows;
+    return MG_DOMAIN.parseFilms(html);
   }
 
   // Poll the films grid and map to entry schema.
@@ -2687,29 +2806,24 @@ const TMDB = (() => {
     }
 
     try {
-      const q   = encodeURIComponent(entry.title);
-      const yr  = entry.year ? `&year=${entry.year}` : '';
-      const key = `api_key=${CFG.TMDB_KEY}`;
-      const s   = await fetch(`${CFG.TMDB_BASE}/search/movie?${key}&query=${q}${yr}`);
-      const sd  = await s.json();
+      // URL building + field extraction are canonical in MG_DOMAIN (same
+      // functions cli/src/tmdb.js imports) — only the fetch calls and the
+      // browser-specific poster-URL/cache concerns stay local.
+      const s  = await fetch(MG_DOMAIN.tmdbSearchUrl(CFG.TMDB_BASE, CFG.TMDB_KEY, entry.title, entry.year));
+      const sd = await s.json();
       const mov = sd.results?.[0];
       // Not on TMDB (yet) — negative-cache the miss so we don't hammer the API
       // every load; retried after 24h (new releases appear on TMDB eventually).
       if (!mov) return { ...entry, tmdbMiss: Date.now() };
 
-      const d   = await fetch(`${CFG.TMDB_BASE}/movie/${mov.id}?${key}&append_to_response=credits`);
-      const dd  = await d.json();
+      const d  = await fetch(MG_DOMAIN.tmdbDetailsUrl(CFG.TMDB_BASE, CFG.TMDB_KEY, mov.id));
+      const dd = await d.json();
+      const fields = MG_DOMAIN.extractTmdbFields(sd, dd);
+      if (!fields) return { ...entry, tmdbMiss: Date.now() };
 
-      const director   = dd.credits?.crew?.find(c => c.job === 'Director')?.name || null;
-      const genres     = (dd.genres || []).map(g => g.name);
-      const runtime    = dd.runtime  || null;
-      const country    = dd.production_countries?.[0]?.iso_3166_1 || null;
-      const poster     = dd.poster_path ? CFG.TMDB_IMG_MD + dd.poster_path : (entry.poster || null);
-      const voteAvg    = dd.vote_average   || null;
-      const voteCount  = dd.vote_count     || null;
-      const popularity = dd.popularity     || null;
-
-      const patch = { tmdbId: mov.id, director, genres, runtime, country, poster, voteAvg, voteCount, popularity };
+      const { posterPath, ...rest } = fields;
+      const poster = posterPath ? CFG.TMDB_IMG_MD + posterPath : (entry.poster || null);
+      const patch  = { ...rest, poster };
       STORE.setTmdbEntry(mov.id, patch);
       return { ...entry, ...patch };
 
@@ -5064,8 +5178,8 @@ const MGSH = (() => {
       const h = hist();
       print(`${hash(e)} <span class="sh-cmd">${esc(e.title)}</span> <span class="sh-dim">(${e.year})</span> — watched ${e.watchedDate}`);
       if (e.rating != null && e.voteAvg) {
-        const delta = e.rating - e.voteAvg / 2;
-        print(`rating: ${stars(e.rating)} vs TMDB ★${(e.voteAvg / 2).toFixed(1)} → <span class="${delta >= 0 ? 'sh-ok' : 'sh-err'}">${delta >= 0 ? '+' : ''}${delta.toFixed(1)}</span> ${Math.abs(delta) > 1 ? '(hot take)' : '(consensus)'}`);
+        const delta = MG_DOMAIN.ratingDelta(e.rating, e.voteAvg);
+        print(`rating: ${stars(e.rating)} vs TMDB ★${(e.voteAvg / 2).toFixed(1)} → <span class="${delta >= 0 ? 'sh-ok' : 'sh-err'}">${delta >= 0 ? '+' : ''}${delta.toFixed(1)}</span> ${MG_DOMAIN.isHotTake(delta) ? '(hot take)' : '(consensus)'}`);
       }
       (e.genres || []).slice(0, 3).forEach(g => {
         const gs = h.filter(x => x.rating != null && (x.genres || []).includes(g));
@@ -5075,7 +5189,7 @@ const MGSH = (() => {
         const ds = h.filter(x => x.director === e.director);
         const dirAvg = DATA.avgRating(ds);
         const avg = dirAvg != null ? dirAvg.toFixed(1) : '—';
-        print(`director ${esc(e.director)}: ${ds.length} film${ds.length > 1 ? 's' : ''} logged, avg <span class="sh-star">★${avg}</span>${ds.length >= 4 && dirAvg >= 4 ? ' <span class="sh-accent">(trusted)</span>' : ''}`);
+        print(`director ${esc(e.director)}: ${ds.length} film${ds.length > 1 ? 's' : ''} logged, avg <span class="sh-star">★${avg}</span>${MG_DOMAIN.isTrustedDirector(ds.length, dirAvg) ? ' <span class="sh-accent">(trusted)</span>' : ''}`);
       }
       const idx = h.slice().sort((x, y) => x.watchedDate.localeCompare(y.watchedDate)).findIndex(x => x.id === e.id && x.watchedDate === e.watchedDate);
       dim(`commit #${idx + 1} of ${h.length}`);
@@ -5232,12 +5346,11 @@ const MGSH = (() => {
       rows.forEach(r => { const k = `${r.title.toLowerCase()}|${r.year}`; if (mine.has(k) && r.rating != null) shared.push({ t: r.title, mine: mine.get(k), theirs: r.rating }); });
       if (!shared.length) return dim(`no shared rated films with ${esc(u)}`);
       const overlapAll = rows.filter(r => mine.has(`${r.title.toLowerCase()}|${r.year}`)).length;
-      const meanDiff = shared.reduce((s, x) => s + Math.abs(x.mine - x.theirs), 0) / shared.length;
-      const compat = Math.max(0, Math.round((1 - meanDiff / 4.5) * 100));
+      const { compat, meanDiff } = MG_DOMAIN.computeCompat(shared);
       print(`<span class="sh-cmd">merge ${esc(CFG.USERNAME)} ← ${esc(u)}</span>`);
       print(`${overlapAll} films both watched · ${shared.length} both rated`);
       print(`taste compatibility: <span class="${compat>=70?'sh-ok':compat>=45?'sh-star':'sh-err'}">${compat}%</span> <span class="sh-dim">(mean Δ ${meanDiff.toFixed(2)}★)</span>`);
-      const conflicts = shared.filter(x => Math.abs(x.mine - x.theirs) >= 2).sort((p, q) => Math.abs(q.mine - q.theirs) - Math.abs(p.mine - p.theirs));
+      const conflicts = shared.filter(x => MG_DOMAIN.isMergeConflict(x.mine, x.theirs)).sort((p, q) => Math.abs(q.mine - q.theirs) - Math.abs(p.mine - p.theirs));
       if (conflicts.length) {
         print(`<span class="sh-err">merge conflicts</span> (rated ≥2★ apart):`);
         conflicts.slice(0, 6).forEach(x => print(`  ${esc(x.t)}  <span class="sh-star">you ★${x.mine}</span> <span class="sh-dim">vs ${esc(u)} ★${x.theirs}</span>`));
