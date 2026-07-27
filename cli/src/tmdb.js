@@ -5,6 +5,7 @@
  *   mg login <user> --tmdb-key <key>
  */
 import { config } from './config.js';
+import { tmdbSearchUrl, tmdbDetailsUrl, extractTmdbFields } from './domain.js';
 
 const BASE = 'https://api.themoviedb.org/3';
 
@@ -19,25 +20,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function enrichOne(film) {
   const k = key();
-  const q = encodeURIComponent(film.title);
-  const yr = film.year ? `&year=${film.year}` : '';
   try {
-    const s = await fetch(`${BASE}/search/movie?api_key=${k}&query=${q}${yr}`);
+    const s = await fetch(tmdbSearchUrl(BASE, k, film.title, film.year));
     const sd = await s.json();
-    const hit = sd.results?.[0];
-    if (!hit) return { ...film, tmdbMiss: true };
+    if (!sd.results?.[0]) return { ...film, tmdbMiss: true };
 
-    const d = await fetch(`${BASE}/movie/${hit.id}?api_key=${k}&append_to_response=credits`);
+    const d = await fetch(tmdbDetailsUrl(BASE, k, sd.results[0].id));
     const dd = await d.json();
-    return {
-      ...film,
-      tmdbId: hit.id,
-      director: dd.credits?.crew?.find((x) => x.job === 'Director')?.name || null,
-      genres: (dd.genres || []).map((g) => g.name),
-      runtime: dd.runtime || null,
-      voteAvg: dd.vote_average || null,
-      voteCount: dd.vote_count || null,
-    };
+    const fields = extractTmdbFields(sd, dd);
+    if (!fields) return { ...film, tmdbMiss: true };
+
+    const { posterPath, country, popularity, ...rest } = fields;
+    return { ...film, ...rest };
   } catch {
     return film;
   }
