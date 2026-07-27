@@ -2516,7 +2516,28 @@ const DATA = (() => {
     try { return new Date(s).toISOString().slice(0, 10); } catch { return s; }
   }
 
-  return { parseCSV, merge, normalizeDate };
+  // Average rating across a films array, ignoring unrated entries.
+  // Shared by RENDER and MGSH so every "avg ★" number in the app comes from
+  // one formula — previously reimplemented inline at 7+ call sites.
+  function avgRating(films) {
+    const rated = films.filter(e => e.rating != null);
+    return rated.length ? rated.reduce((s, e) => s + e.rating, 0) / rated.length : null;
+  }
+
+  // Fuzzy film lookup over an arbitrary films array: exact title → starts-with
+  // → includes. Shared so every command/view resolves an ambiguous title the
+  // same way — previously MGSH's own commands duplicated this with a
+  // 2-tier version that could disagree with the 3-tier canonical match.
+  function findFilm(films, q) {
+    if (!q) return { film: null, matches: [] };
+    const needle = q.toLowerCase();
+    let matches = films.filter(e => e.title.toLowerCase() === needle);
+    if (!matches.length) matches = films.filter(e => e.title.toLowerCase().startsWith(needle));
+    if (!matches.length) matches = films.filter(e => e.title.toLowerCase().includes(needle));
+    return { film: matches[0] || null, matches };
+  }
+
+  return { parseCSV, merge, normalizeDate, avgRating, findFilm };
 })();
 
 /* ============================================================
@@ -2791,8 +2812,7 @@ const RENDER = (() => {
     panel.style.display = '';
 
     // Core stats
-    const rated   = thisYear.filter(e => e.rating != null);
-    const avgRat  = rated.length ? (rated.reduce((s,e) => s+e.rating, 0) / rated.length) : null;
+    const avgRat  = DATA.avgRating(thisYear);
     const totalMin = thisYear.reduce((s,e) => s+(e.runtime||0), 0);
 
     // Genre breakdown
@@ -2941,10 +2961,8 @@ const RENDER = (() => {
 
   // ── Metrics ───────────────────────────────────────────────
   function renderMetrics(history, now) {
-    const rated  = history.filter(e => e.rating !== null && e.rating !== undefined);
-    const avgRat = rated.length
-      ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1)
-      : '—';
+    const avg    = DATA.avgRating(history);
+    const avgRat = avg != null ? avg.toFixed(1) : '—';
 
     const totalMin = history.reduce((s, e) => s + (e.runtime || 0), 0);
     const timeStr  = totalMin >= 60 ? Math.round(totalMin / 60) + 'h' : (totalMin || '—');
@@ -3468,8 +3486,7 @@ const RENDER = (() => {
 
     function computeYearStats(yr) {
       const entries = history.filter(e => e.watchedDate?.startsWith(yr));
-      const rated   = entries.filter(e => e.rating != null);
-      const avgRat  = rated.length ? rated.reduce((s,e)=>s+e.rating,0)/rated.length : null;
+      const avgRat  = DATA.avgRating(entries);
 
       // Genre counts
       const gc = {};
@@ -3633,7 +3650,7 @@ const RENDER = (() => {
 
     const avgs  = sorted.map(([k,rs]) => ({ k, avg: rs.reduce((s,r)=>s+r,0)/rs.length, n: rs.length }));
     const maxA  = Math.max(...avgs.map(a=>a.avg));
-    const overallAvg = (history.filter(e=>e.rating!=null).reduce((s,e)=>s+e.rating,0) / (history.filter(e=>e.rating!=null).length||1)).toFixed(2);
+    const overallAvg = (DATA.avgRating(history) ?? 0).toFixed(2);
     $('stats-rating-sub').textContent = `overall avg: ★${overallAvg}`;
 
     $('stats-rating-time').innerHTML = `
@@ -3668,8 +3685,8 @@ const RENDER = (() => {
   }
 
   function renderNumbers(history) {
-    const rated     = history.filter(e=>e.rating!=null);
-    const avgRat    = rated.length ? (rated.reduce((s,e)=>s+e.rating,0)/rated.length).toFixed(2) : '—';
+    const avgN      = DATA.avgRating(history);
+    const avgRat    = avgN != null ? avgN.toFixed(2) : '—';
     const fiveStar  = history.filter(e=>e.rating===5).length;
     const totalMin  = history.reduce((s,e)=>s+(e.runtime||0),0);
     const runtimeH  = totalMin ? Math.round(totalMin/60)+'h' : '—';
@@ -4789,16 +4806,9 @@ const MGSH = (() => {
     return t;
   }
 
-  // Fuzzy film lookup: exact title → starts-with → includes
-  function findFilm(q) {
-    if (!q) return { film: null, matches: [] };
-    const needle = q.toLowerCase();
-    const h = hist();
-    let matches = h.filter(e => e.title.toLowerCase() === needle);
-    if (!matches.length) matches = h.filter(e => e.title.toLowerCase().startsWith(needle));
-    if (!matches.length) matches = h.filter(e => e.title.toLowerCase().includes(needle));
-    return { film: matches[0] || null, matches };
-  }
+  // Fuzzy film lookup over the current history — canonical 3-tier match lives
+  // in DATA.findFilm so every command resolves an ambiguous title the same way.
+  function findFilm(q) { return DATA.findFilm(hist(), q); }
 
   function scoped() {
     const head = getHead();
@@ -4821,8 +4831,7 @@ const MGSH = (() => {
 
   function yearStats(y) {
     const f = hist().filter(e => (e.watchedDate || '').startsWith(String(y)));
-    const rated = f.filter(e => e.rating != null);
-    const avg = rated.length ? rated.reduce((s, e) => s + e.rating, 0) / rated.length : null;
+    const avg = DATA.avgRating(f);
     const mins = f.reduce((s, e) => s + (e.runtime || 0), 0);
     const gc = {};
     f.forEach(e => (e.genres || []).forEach(g => gc[g] = (gc[g] || 0) + 1));
@@ -5060,13 +5069,13 @@ const MGSH = (() => {
       }
       (e.genres || []).slice(0, 3).forEach(g => {
         const gs = h.filter(x => x.rating != null && (x.genres || []).includes(g));
-        if (gs.length > 1) print(`genre ${esc(g)}: your avg <span class="sh-star">★${(gs.reduce((s, x) => s + x.rating, 0) / gs.length).toFixed(1)}</span> <span class="sh-dim">over ${gs.length} films</span>`);
+        if (gs.length > 1) print(`genre ${esc(g)}: your avg <span class="sh-star">★${DATA.avgRating(gs).toFixed(1)}</span> <span class="sh-dim">over ${gs.length} films</span>`);
       });
       if (e.director) {
         const ds = h.filter(x => x.director === e.director);
-        const dr = ds.filter(x => x.rating != null);
-        const avg = dr.length ? (dr.reduce((s, x) => s + x.rating, 0) / dr.length).toFixed(1) : '—';
-        print(`director ${esc(e.director)}: ${ds.length} film${ds.length > 1 ? 's' : ''} logged, avg <span class="sh-star">★${avg}</span>${ds.length >= 4 && avg >= 4 ? ' <span class="sh-accent">(trusted)</span>' : ''}`);
+        const dirAvg = DATA.avgRating(ds);
+        const avg = dirAvg != null ? dirAvg.toFixed(1) : '—';
+        print(`director ${esc(e.director)}: ${ds.length} film${ds.length > 1 ? 's' : ''} logged, avg <span class="sh-star">★${avg}</span>${ds.length >= 4 && dirAvg >= 4 ? ' <span class="sh-accent">(trusted)</span>' : ''}`);
       }
       const idx = h.slice().sort((x, y) => x.watchedDate.localeCompare(y.watchedDate)).findIndex(x => x.id === e.id && x.watchedDate === e.watchedDate);
       dim(`commit #${idx + 1} of ${h.length}`);
@@ -5185,8 +5194,8 @@ const MGSH = (() => {
       print(`<span class="sh-cmd">rebase ${y}</span> <span class="sh-dim">(${f.length} commits)</span>`);
       Object.keys(by).map(Number).sort((x, z) => x - z).forEach(m => {
         const films = by[m];
-        const rated = films.filter(e => e.rating != null);
-        const avg = rated.length ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1) : '—';
+        const monthAvg = DATA.avgRating(films);
+        const avg = monthAvg != null ? monthAvg.toFixed(1) : '—';
         const top = films.slice().sort((x, z) => (z.rating || 0) - (x.rating || 0))[0];
         print(`<span class="sh-accent">${M[m]}</span>  ${String(films.length).padStart(2)} films  <span class="sh-star">★${avg}</span>  <span class="sh-dim">top: ${esc(top.title)}</span>`);
       });
@@ -5201,8 +5210,8 @@ const MGSH = (() => {
       let best = null;
       for (let i = 2; i < f.length - 2; i++) {
         const before = f.slice(0, i), after = f.slice(i);
-        const avgB = before.reduce((s, e) => s + e.rating, 0) / before.length;
-        const avgA = after.reduce((s, e) => s + e.rating, 0) / after.length;
+        const avgB = DATA.avgRating(before);
+        const avgA = DATA.avgRating(after);
         const delta = Math.abs(avgA - avgB);
         if (!best || delta > best.delta) best = { film: f[i], delta, avgB, avgA };
       }
@@ -5242,7 +5251,10 @@ const MGSH = (() => {
       dim(`fetching ${esc(u)}/films/ …`);
       const rows = await LB.fetchUserFilms(u);
       if (!rows) return err(`could not reach ${esc(u)}'s films`);
-      const hit = rows.find(r => r.title.toLowerCase() === q) || rows.find(r => r.title.toLowerCase().includes(q));
+      // Same 3-tier match as blame/grep/show — previously a narrower 2-tier
+      // lookup here could resolve an ambiguous query differently than every
+      // other command.
+      const { film: hit } = DATA.findFilm(rows, q);
       if (!hit) return err(`${esc(u)} hasn't logged anything matching '${esc(q)}'`);
       const st = getStash();
       if (st.some(s => s.title.toLowerCase() === hit.title.toLowerCase())) return dim('already in your stash');
