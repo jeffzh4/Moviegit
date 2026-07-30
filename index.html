@@ -2412,6 +2412,12 @@ const STORE = (() => {
       localStorage.removeItem(K.csvDone);
       localStorage.removeItem(K.seedVer);
     },
+    // Generic JSON read/write for arbitrary keys — MGSH's mg_branches/
+    // mg_head/mg_stash/mg_reflog/mg_tmdb_cache used to reimplement this
+    // exact try/JSON.parse/JSON.stringify pattern themselves (readK/writeK)
+    // or hit localStorage raw. One place, one error-handling path.
+    readJSON:  read,
+    writeJSON: write,
   };
 })();
 
@@ -2685,9 +2691,15 @@ const DATA = (() => {
     try { return new Date(s).toISOString().slice(0, 10); } catch { return s; }
   }
 
+  // HTML-escape, shared so RENDER and MGSH can't drift again (they used to:
+  // RENDER's used `s || ''`, MGSH's used `s ?? ''` — esc(0) differed).
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   // avgRating / findFilm live in MG_DOMAIN — the same functions cli/ imports
   // from cli/src/domain.js, kept in sync via scripts/sync-domain.py.
-  return { parseCSV, merge, normalizeDate, avgRating: MG_DOMAIN.avgRating, findFilm: MG_DOMAIN.findFilm };
+  return { parseCSV, merge, normalizeDate, avgRating: MG_DOMAIN.avgRating, findFilm: MG_DOMAIN.findFilm, esc };
 })();
 
 /* ============================================================
@@ -3309,9 +3321,7 @@ const RENDER = (() => {
     return `${Math.floor(days / 365)}y ago`;
   }
 
-  function esc(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  const esc = DATA.esc;
 
   // ── Diary ──────────────────────────────────────────────────
   const DIARY_PAGE_SIZE = 25;
@@ -4826,9 +4836,9 @@ const MG = (() => {
   // Append a sync event to the reflog (capped at 40) — powers `mg reflog`.
   function recordReflog(scanned, added) {
     try {
-      const log = JSON.parse(localStorage.getItem('mg_reflog') || '[]');
+      const log = STORE.readJSON('mg_reflog') || [];
       log.unshift({ at: new Date().toISOString(), scanned, added });
-      localStorage.setItem('mg_reflog', JSON.stringify(log.slice(0, 40)));
+      STORE.writeJSON('mg_reflog', log.slice(0, 40));
     } catch {}
   }
 
@@ -4888,7 +4898,7 @@ const MGSH = (() => {
   let histBuf = [], histIdx = -1;
 
   const $out = () => document.getElementById('mgsh-out');
-  const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const esc  = DATA.esc;
 
   function print(html, cls) {
     const div = document.createElement('div');
@@ -4902,11 +4912,12 @@ const MGSH = (() => {
   const dim = s => print(s, 'sh-dim');
 
   // ── tiny state (branches / stash / HEAD) ────────────────────
-  const readK  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const writeK = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-  const getBranches = () => readK('mg_branches', {});
-  const getHead     = () => readK('mg_head', null);
-  const getStash    = () => readK('mg_stash', []);
+  // Raw JSON read/write now lives on STORE (readK/writeK used to reimplement
+  // this exact try/JSON.parse/JSON.stringify pattern locally).
+  const writeK = STORE.writeJSON;
+  const getBranches = () => STORE.readJSON('mg_branches') ?? {};
+  const getHead     = () => STORE.readJSON('mg_head') ?? null;
+  const getStash    = () => STORE.readJSON('mg_stash') ?? [];
 
   // ── helpers ─────────────────────────────────────────────────
   const hist  = () => STORE.getHistory();
@@ -5254,8 +5265,7 @@ const MGSH = (() => {
     }},
 
     reflog: { use: 'reflog', desc: 'sync history: every poll + what it found', fn() {
-      let log = [];
-      try { log = JSON.parse(localStorage.getItem('mg_reflog') || '[]'); } catch {}
+      const log = STORE.readJSON('mg_reflog') || [];
       if (!log.length) return dim("no syncs recorded yet — run 'pull'");
       log.slice(0, 20).forEach((r, i) => {
         const when = new Date(r.at);
@@ -5270,7 +5280,7 @@ const MGSH = (() => {
       const cache = STORE.getTmdb();
       let pruned = 0;
       Object.keys(cache).forEach(k => { if (!ids.has(Number(k))) { delete cache[k]; pruned++; } });
-      localStorage.setItem('mg_tmdb_cache', JSON.stringify(cache));
+      STORE.writeJSON('mg_tmdb_cache', cache);
       let bytes = 0;
       for (const k in localStorage) if (k.startsWith('mg_')) bytes += (localStorage[k] || '').length;
       dim(`pruning orphan TMDB cache entries…`);
