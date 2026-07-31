@@ -1,4 +1,9 @@
-/** Terminal rendering: colors, stars, deterministic commit hashes, tables. */
+/** Terminal rendering: colors, stars, tables. */
+
+// mgHash lives in domain.js — same FNV-1a hash the web dashboard uses,
+// so hashes match across both. Re-exported so callers don't need to know
+// it moved.
+export { mgHash } from './domain.js';
 
 const NO_COLOR = process.env.NO_COLOR != null || !process.stdout.isTTY;
 const wrap = (code) => (s) => NO_COLOR ? String(s) : `\x1b[${code}m${s}\x1b[0m`;
@@ -14,17 +19,6 @@ export const c = {
   cyan:   wrap('36'),
   gray:   wrap('90'),
 };
-
-/** Same FNV-1a hash the web dashboard uses, so hashes match across both. */
-export function mgHash(title, year) {
-  let h = 0x811c9dc5 >>> 0;
-  const s = String(title || '') + String(year || '');
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h.toString(16).padStart(8, '0').slice(0, 7);
-}
 
 export function stars(r) {
   if (r == null) return c.gray('unrated');
