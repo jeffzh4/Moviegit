@@ -7,7 +7,7 @@ import { AUTH_HELP, logFilm, whoami, getCookie } from './auth.js';
 import { c, stars, mgHash, bar, delta, pad, padStart, heading, die } from './format.js';
 import {
   avgRating, findFilm as findFilmDomain, ratingDelta, isHotTake, isTrustedDirector,
-  computeCompat, isMergeConflict, summarize,
+  computeCompat, isMergeConflict, summarize, longestStreak,
 } from './domain.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -201,17 +201,13 @@ export const commands = {
 
   async streak(args, flags) {
     const { films } = await load(flags);
-    const days = [...new Set(films.map((f) => f.watchedDate).filter(Boolean))].sort();
+    const days = [...new Set(films.map((f) => f.watchedDate).filter(Boolean))];
     if (!days.length) {
       return log(c.gray('the films grid carries no watch dates, so streaks are dashboard-only.\n' +
         'Open the web dashboard for streaks (it seeds real dates from your CSV export).'));
     }
-    let longest = 1, run = 1;
-    for (let i = 1; i < days.length; i++) {
-      run = (new Date(days[i]) - new Date(days[i - 1])) / 86400000 === 1 ? run + 1 : 1;
-      longest = Math.max(longest, run);
-    }
-    log(`longest streak: ${c.yellow(longest)} days · active days: ${days.length}`);
+    const { length } = longestStreak(films);
+    log(`longest streak: ${c.yellow(length)} days · active days: ${days.length}`);
   },
 
   async wrapped(args, flags) {

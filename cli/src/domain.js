@@ -146,6 +146,37 @@ export function isMergeConflict(mine, theirs) {
   return Math.abs(mine - theirs) >= 2;
 }
 
+/**
+ * Deterministic 7-char commit hash from title+year (FNV-1a). Same hash in
+ * the mg terminal and the mg CLI — a hash you see in one is the hash you
+ * see in the other.
+ */
+export function mgHash(title, year) {
+  let h = 0x811c9dc5 >>> 0;
+  const s = String(title || '') + String(year || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0').slice(0, 7);
+}
+
+/**
+ * Longest run of consecutive-day watch dates in a films array.
+ * Returns { length, endDate } — endDate is the last day of that run
+ * (null if there are no dated watches at all).
+ */
+export function longestStreak(films) {
+  const days = [...new Set(films.map(e => e.watchedDate).filter(Boolean))].sort();
+  if (!days.length) return { length: 0, endDate: null };
+  let longest = 1, run = 1, endDate = days[0];
+  for (let i = 1; i < days.length; i++) {
+    run = (new Date(days[i]) - new Date(days[i - 1])) / 86400000 === 1 ? run + 1 : 1;
+    if (run > longest) { longest = run; endDate = days[i]; }
+  }
+  return { length: longest, endDate };
+}
+
 /** wrapped / status: shared summary stats for a films array. */
 export function summarize(films) {
   const rated = films.filter(e => e.rating != null);

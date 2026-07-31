@@ -2559,6 +2559,37 @@ function isMergeConflict(mine, theirs) {
   return Math.abs(mine - theirs) >= 2;
 }
 
+/**
+ * Deterministic 7-char commit hash from title+year (FNV-1a). Same hash in
+ * the mg terminal and the mg CLI — a hash you see in one is the hash you
+ * see in the other.
+ */
+function mgHash(title, year) {
+  let h = 0x811c9dc5 >>> 0;
+  const s = String(title || '') + String(year || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0').slice(0, 7);
+}
+
+/**
+ * Longest run of consecutive-day watch dates in a films array.
+ * Returns { length, endDate } — endDate is the last day of that run
+ * (null if there are no dated watches at all).
+ */
+function longestStreak(films) {
+  const days = [...new Set(films.map(e => e.watchedDate).filter(Boolean))].sort();
+  if (!days.length) return { length: 0, endDate: null };
+  let longest = 1, run = 1, endDate = days[0];
+  for (let i = 1; i < days.length; i++) {
+    run = (new Date(days[i]) - new Date(days[i - 1])) / 86400000 === 1 ? run + 1 : 1;
+    if (run > longest) { longest = run; endDate = days[i]; }
+  }
+  return { length: longest, endDate };
+}
+
 /** wrapped / status: shared summary stats for a films array. */
 function summarize(films) {
   const rated = films.filter(e => e.rating != null);
@@ -2587,6 +2618,7 @@ function summarize(films) {
     tmdbSearchUrl, tmdbDetailsUrl, extractTmdbFields,
     ratingDelta, isHotTake, isTrustedDirector,
     computeCompat, isMergeConflict, summarize,
+    mgHash, longestStreak,
   };
 })();
 
@@ -3280,16 +3312,9 @@ const RENDER = (() => {
     return streak;
   }
 
+  // Canonical algorithm lives in MG_DOMAIN — matches CLI's mg streak exactly.
   function calcLongestStreak(history) {
-    const dates = [...new Set(history.map(e => e.watchedDate).filter(Boolean))].sort();
-    let best = 0, cur = 0, prev = null;
-    dates.forEach(d => {
-      const diff = prev ? (new Date(d) - new Date(prev)) / 86400000 : 999;
-      cur = diff === 1 ? cur + 1 : 1;
-      if (cur > best) best = cur;
-      prev = d;
-    });
-    return best;
+    return MG_DOMAIN.longestStreak(history).length;
   }
 
   function calcBestMonth(history) {
@@ -3418,16 +3443,9 @@ const RENDER = (() => {
   }
 
   // ── mg log terminal view ──────────────────────────────────────
-  function mgHash(title, year) {
-    // Short deterministic 7-char hex from title+year string
-    let h = 0x811c9dc5 >>> 0;
-    const s = String(title || '') + String(year || '');
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 0x01000193) >>> 0;
-    }
-    return h.toString(16).padStart(8, '0').slice(0, 7);
-  }
+  // Canonical hash lives in MG_DOMAIN (same as cli/src/domain.js) —
+  // the mg terminal and the mg CLI produce the same hash for the same film.
+  const mgHash = MG_DOMAIN.mgHash;
 
   function renderMgLog(history) {
     // Apply same filters as card view
@@ -5224,12 +5242,7 @@ const MGSH = (() => {
     streak: { use: 'streak', desc: 'current + longest watch streaks', fn() {
       const days = [...new Set(hist().map(e => e.watchedDate))].filter(Boolean).sort();
       if (!days.length) return dim('no watches yet');
-      let longest = 1, run = 1, lEnd = days[0];
-      for (let i = 1; i < days.length; i++) {
-        const gap = (new Date(days[i]) - new Date(days[i - 1])) / 86400000;
-        run = gap === 1 ? run + 1 : 1;
-        if (run > longest) { longest = run; lEnd = days[i]; }
-      }
+      const { length: longest, endDate: lEnd } = MG_DOMAIN.longestStreak(hist());
       const cur = streakDays();
       print(`current streak:  <span class="sh-star">${cur}</span> day${cur === 1 ? '' : 's'}`);
       print(`longest streak:  <span class="sh-star">${longest}</span> days <span class="sh-dim">(ended ${lEnd})</span>`);
