@@ -1,9 +1,9 @@
 /** Terminal rendering: colors, stars, tables. */
 
-// mgHash lives in domain.js — same FNV-1a hash the web dashboard uses,
-// so hashes match across both. Re-exported so callers don't need to know
-// it moved.
-export { mgHash } from './domain.js';
+// mgHash / starGlyphs / formatAgo live in domain.js — same output the web
+// dashboard produces. Re-exported so callers don't need to know that.
+import { starGlyphs, formatAgo } from './domain.js';
+export { mgHash, formatAgo } from './domain.js';
 
 const NO_COLOR = process.env.NO_COLOR != null || !process.stdout.isTTY;
 const wrap = (code) => (s) => NO_COLOR ? String(s) : `\x1b[${code}m${s}\x1b[0m`;
@@ -21,8 +21,8 @@ export const c = {
 };
 
 export function stars(r) {
-  if (r == null) return c.gray('unrated');
-  return c.yellow('★'.repeat(Math.floor(r)) + (r % 1 ? '½' : ''));
+  const glyphs = starGlyphs(r);
+  return glyphs == null ? c.gray('unrated') : c.yellow(glyphs);
 }
 
 export function bar(value, max, width = 16) {

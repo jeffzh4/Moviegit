@@ -4,7 +4,7 @@ import { config, resolveUser } from './config.js';
 import { fetchFilms, fetchProfile, resolveFilm } from './letterboxd.js';
 import { enrich, hasKey } from './tmdb.js';
 import { AUTH_HELP, logFilm, whoami, getCookie } from './auth.js';
-import { c, stars, mgHash, bar, delta, pad, padStart, heading, die } from './format.js';
+import { c, stars, mgHash, bar, delta, pad, padStart, heading, die, formatAgo } from './format.js';
 import {
   avgRating, findFilm as findFilmDomain, ratingDelta, isHotTake, isTrustedDirector,
   computeCompat, isMergeConflict, summarize, longestStreak,
@@ -112,8 +112,7 @@ export const commands = {
     const a = avg(films);
     const mins = films.reduce((s, f) => s + (f.runtime || 0), 0);
     const cache = config.cache();
-    const ago = cache?.syncedAt
-      ? Math.round((Date.now() - new Date(cache.syncedAt)) / 60000) + 'm ago' : 'never';
+    const ago = formatAgo(cache?.syncedAt);
     log(`On account ${c.cyan('@' + user)}`);
     log(`${c.bold(films.length)} films watched · ${rated(films).length} rated${a ? ` · avg ${stars(Math.round(a * 2) / 2)} ${c.gray(a.toFixed(2))}` : ''}`);
     if (mins) log(`${Math.round(mins / 60)}h total runtime`);

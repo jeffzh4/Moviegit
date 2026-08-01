@@ -2612,13 +2612,32 @@ function summarize(films) {
     topRated,
   };
 }
+
+// ── Display formatting shared by both terminals ──────────────────────────
+
+/**
+ * Star glyphs for a rating (e.g. 4.5 -> "★★★★½"). Returns null for an
+ * unrated film — callers render their own "unrated" label, since that's
+ * styled differently in each surface (ANSI gray vs a CSS class).
+ */
+function starGlyphs(rating) {
+  if (rating == null) return null;
+  return '★'.repeat(Math.floor(rating)) + (rating % 1 ? '½' : '');
+}
+
+/** "12m ago" / "never" — how long since an ISO timestamp, or "never" if none. */
+function formatAgo(isoString) {
+  if (!isoString) return 'never';
+  const mins = Math.round((Date.now() - new Date(isoString)) / 60000);
+  return `${mins}m ago`;
+}
 /* DOMAIN:END */
   return {
     decodeEntities, splitName, parseFilms, avgRating, findFilm,
     tmdbSearchUrl, tmdbDetailsUrl, extractTmdbFields,
     ratingDelta, isHotTake, isTrustedDirector,
     computeCompat, isMergeConflict, summarize,
-    mgHash, longestStreak,
+    mgHash, longestStreak, starGlyphs, formatAgo,
   };
 })();
 
@@ -4939,8 +4958,10 @@ const MGSH = (() => {
 
   // ── helpers ─────────────────────────────────────────────────
   const hist  = () => STORE.getHistory();
-  const stars = r => r == null ? '<span class="sh-dim">unrated</span>'
-    : '<span class="sh-star">' + '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '') + '</span>';
+  const stars = r => {
+    const glyphs = MG_DOMAIN.starGlyphs(r);
+    return glyphs == null ? '<span class="sh-dim">unrated</span>' : `<span class="sh-star">${glyphs}</span>`;
+  };
   const hash  = e => `<span class="sh-hash">${RENDER.mgHash(e.title, e.year)}</span>`;
 
   function tokenize(line) {
@@ -5000,7 +5021,7 @@ const MGSH = (() => {
       const month = new Date().toISOString().slice(0, 7);
       const enriched = h.filter(e => e.tmdbId).length;
       const last = STORE.getLastPoll();
-      const ago  = last ? Math.round((Date.now() - new Date(last)) / 60000) + 'm ago' : 'never';
+      const ago  = MG_DOMAIN.formatAgo(last);
       print(`On branch <span class="sh-accent">${esc(head || 'main')}</span>`);
       print(`${h.length} films logged · ${Math.round(mins / 60)}h runtime`);
       print(`last sync: ${ago} · auto-poll every ${CFG.POLL_MS / 60000}m`);
@@ -5229,7 +5250,7 @@ const MGSH = (() => {
       print(`origin  <span class="sh-dim">no push — Letterboxd has no write API</span>`);
       dim(`source: /films/ grid via allorigins.win → cors.eu.org fallback`);
       const last = STORE.getLastPoll();
-      dim(`last sync: ${last ? Math.round((Date.now() - new Date(last)) / 60000) + 'm ago' : 'never'} · auto-poll every ${CFG.POLL_MS / 60000}m`);
+      dim(`last sync: ${MG_DOMAIN.formatAgo(last)} · auto-poll every ${CFG.POLL_MS / 60000}m`);
     }},
 
     clone: { use: 'clone <letterboxd-user>', desc: 'open someone else\'s dashboard', fn(a) {
