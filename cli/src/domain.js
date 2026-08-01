@@ -199,3 +199,22 @@ export function summarize(films) {
     topRated,
   };
 }
+
+// ── Display formatting shared by both terminals ──────────────────────────
+
+/**
+ * Star glyphs for a rating (e.g. 4.5 -> "★★★★½"). Returns null for an
+ * unrated film — callers render their own "unrated" label, since that's
+ * styled differently in each surface (ANSI gray vs a CSS class).
+ */
+export function starGlyphs(rating) {
+  if (rating == null) return null;
+  return '★'.repeat(Math.floor(rating)) + (rating % 1 ? '½' : '');
+}
+
+/** "12m ago" / "never" — how long since an ISO timestamp, or "never" if none. */
+export function formatAgo(isoString) {
+  if (!isoString) return 'never';
+  const mins = Math.round((Date.now() - new Date(isoString)) / 60000);
+  return `${mins}m ago`;
+}
