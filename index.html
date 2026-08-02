@@ -891,6 +891,17 @@
     .stat-bar-val { min-width: 32px; text-align: right; color: var(--text-tertiary); font-size: 11px; }
     .stat-bar-avg { min-width: 28px; text-align: right; color: var(--text-tertiary); font-size: 10px; opacity: .7; }
 
+    /* GitHub repo-language-bar: one continuous segmented strip, not stacked
+       per-item bars — the genre rows below still show name/%/avg detail. */
+    .lang-bar {
+      display: flex; height: 8px; border-radius: 999px; overflow: hidden;
+      background: var(--bg-tertiary); margin-bottom: 12px;
+    }
+    .lang-bar-seg {
+      height: 100%; transition: width .6s cubic-bezier(.4,0,.2,1);
+    }
+    .lang-bar-seg + .lang-bar-seg { margin-left: 1px; }
+
     /* Rating-over-time sparkline */
     .rating-timeline {
       display: flex;
@@ -1823,6 +1834,7 @@
 
       <div class="s-section">
         <div class="s-title">top genres</div>
+        <div id="sidebar-lang-bar" class="lang-bar"></div>
         <div id="sidebar-genres">
           <div style="font-size:11px;color:var(--text-tertiary)">Loading…</div>
         </div>
@@ -3231,6 +3243,10 @@ const RENDER = (() => {
     const maxG = top[0]?.[1] || 1;
     const totG = top.reduce((s, [, n]) => s + n, 0) || 1;
     const COLORS = ['#3fb950', '#7F77DD', '#EF9F27', '#D85A30', '#1D9E75'];
+
+    $('sidebar-lang-bar').innerHTML = top.map(([g, n], i) =>
+      `<div class="lang-bar-seg" style="width:${(n/totG*100).toFixed(1)}%;background:${COLORS[i]}" title="${esc(g)} ${Math.round(n/totG*100)}%"></div>`
+    ).join('');
 
     $('sidebar-genres').innerHTML = top.length
       ? top.map(([g, n], i) => `
