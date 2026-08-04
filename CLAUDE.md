@@ -14,7 +14,7 @@ The core metaphor: **watching a film = a git commit.** Contribution graphs, comm
 
 - **GitHub**: https://github.com/jeffzh4/Moviegit
 - **Hosting**: GitHub Pages (`main` branch, root)
-- **Files that ship**: `index.html`, `favicon-tv-b.svg`, `README.md`, `cli/` (npm package `moviegit`)
+- **Files that ship**: `index.html`, `favicon-tv-b.svg`, `README.md`, `CHANGELOG.md`, `docs/` (PRD, design, architecture, roadmap, known issues, future features), `cli/` (npm package `moviegit`)
 - **Files that don't ship**: `data.zip`, `lbdata/`, `moviegit_dashboard_template.html`, `CLAUDE.md`
 
 > **On every commit**: update `README.md` changelog and this file's "Current Status" line if anything significant changed.
