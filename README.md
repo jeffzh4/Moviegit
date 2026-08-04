@@ -44,11 +44,28 @@ The core metaphor, taken all the way: MovieGit ships a working **command line**,
 - [The mg CLI (your real terminal)](#the-mg-cli-your-real-terminal)
 - [How Sync Works](#how-sync-works)
 - [Architecture](#architecture)
+- [Documentation](#documentation)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Self-Hosting](#self-hosting)
 - [Multi-User & Sharing](#multi-user--sharing)
 - [FAQ](#faq)
 - [Changelog](#changelog)
+
+---
+
+## Documentation
+
+This README covers the product surface. The full reasoning behind it — what was decided, why, and what's still open — lives in [`docs/`](docs/):
+
+| Document | What it covers |
+|---|---|
+| [Product Requirements](docs/PRD.md) | The problem, who it's for, goals and explicit non-goals, and requests that were considered and declined |
+| [Design Doc](docs/DESIGN.md) | The GitHub-metaphor design system, mapped explicitly, plus accessibility and responsive-design decisions |
+| [Architecture](docs/ARCHITECTURE.md) | Module map, the shared domain-logic module and why it exists, and a full post-mortem of the RSS-to-scrape sync rewrite |
+| [Roadmap](docs/ROADMAP.md) | Committed, scoped work — near-, mid-, and long-term |
+| [Known Issues](docs/KNOWN_ISSUES.md) | Disclosed, current limitations — not a bug tracker, an honesty check |
+| [Future Features](docs/FUTURE_FEATURES.md) | Unscoped ideas, kept separate from the roadmap on purpose |
+| [Changelog](CHANGELOG.md) | Every notable change, dated, with the reasoning behind the larger ones |
 
 ---
 
@@ -308,27 +325,7 @@ Once loaded and cached, yes — the dashboard renders from `localStorage`. Sync 
 
 ## Changelog
 
-### v1.5 (Current)
-- **`mg` CLI** — a real, installable command line (`npm install -g moviegit`), zero dependencies, Node 18+. Read commands need no authentication; `mg commit` logs films to Letterboxd from your shell using your own session cookie. Commit hashes match the dashboard.
-- **Icons are now inline SVG** — the Tabler icon webfont CDN had started 404ing, silently blanking every icon in the UI. Replaced with a self-contained sprite, so the dashboard is genuinely dependency-free and the header buttons visibly signal what they do.
-
-### v1.4
-- **`mg` terminal** — a real command line over your watch history (`` ` `` or the header terminal button). **28 git-style commands**: `status` `log` `commit` `pull` `fetch` `push` `show` `grep` `diff` `shortlog` `contributors` `streak` `tag` `branch` `checkout` `stash` `revert` `blame` `remote` `reflog` `clone` `merge` `cherry-pick` `rebase` `wrapped` `bisect` `gc` `config` — plus `help`/`clear`/`exit`.
-- `mg blame` traces *why* a rating happened; `mg merge <user>` scores taste compatibility against another account; `mg bisect` finds your taste-shifting film.
-- **Poster fix** — removed the enrichment cap that left later films blank, added a 24h negative-cache for films missing from TMDB, upgraded posters to higher resolution (w342) with a one-time migration.
-- **GitHub-esque polish** — header button tooltips, underline navigation, focus rings, `prefers-reduced-motion` support.
-
-### v1.3
-- **Live sync that actually works** — scrapes the profile films grid instead of RSS, so watched + rated films appear the moment they're logged. CORS-proxy chain (`allorigins.win/raw` → `cors.eu.org`). Fixed an enrichment race that dropped freshly-synced films.
-
-### v1.2
-- `?user=<handle>` guest view, `?tab=` deep-linking, contribution-graph tooltips, milestone markers, Taste DNA prose rewrite, Web Share button, enrichment progress bar.
-
-### v1.1
-- `mg log` terminal diary view, director-completion %, taste-drift panel, mobile responsiveness, live avatar from Letterboxd, keyboard shortcuts.
-
-### v1.0
-- Contribution graph, metric cards, rating distribution, activity feed, diary, 15-panel stats, canon shelf, about modal, light/dark theme, TMDB enrichment, CSV seed.
+The full, dated changelog — including the RSS-to-scrape rewrite's real debugging history and the most recent domain-module dedup pass — lives in [CHANGELOG.md](CHANGELOG.md). Current version: **v1.5**, plus an unreleased engineering-hardening pass on `main`.
 
 ---
 
