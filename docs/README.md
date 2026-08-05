@@ -7,6 +7,7 @@ Product and engineering documentation for [MovieGit](../README.md). The README c
 | [Product Requirements](PRD.md) | Who this is for, what it's trying to do, and what it's explicitly not trying to do |
 | [Design Doc](DESIGN.md) | Why every screen looks like GitHub specifically, mapped decision by decision |
 | [Architecture](ARCHITECTURE.md) | How the code is put together, and the full story behind the two hardest bugs this project shipped |
+| [Case Study: The RSS Bug](CASE_STUDY.md) | A full debugging post-mortem — four attempts, three real-but-wrong fixes, and what finally found the actual root cause |
 | [Roadmap](ROADMAP.md) | What's actually planned next, and why it's next |
 | [Known Issues](KNOWN_ISSUES.md) | What's currently broken, approximate, or unverified — stated plainly |
 | [Future Features](FUTURE_FEATURES.md) | Ideas that haven't been scoped yet |

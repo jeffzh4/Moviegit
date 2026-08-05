@@ -62,6 +62,7 @@ This README covers the product surface. The full reasoning behind it — what wa
 | [Product Requirements](docs/PRD.md) | The problem, who it's for, goals and explicit non-goals, and requests that were considered and declined |
 | [Design Doc](docs/DESIGN.md) | The GitHub-metaphor design system, mapped explicitly, plus accessibility and responsive-design decisions |
 | [Architecture](docs/ARCHITECTURE.md) | Module map, the shared domain-logic module and why it exists, and a full post-mortem of the RSS-to-scrape sync rewrite |
+| [Case Study: The RSS Bug](docs/CASE_STUDY.md) | The full debugging narrative — four attempts, three real-but-wrong fixes, one root cause |
 | [Roadmap](docs/ROADMAP.md) | Committed, scoped work — near-, mid-, and long-term |
 | [Known Issues](docs/KNOWN_ISSUES.md) | Disclosed, current limitations — not a bug tracker, an honesty check |
 | [Future Features](docs/FUTURE_FEATURES.md) | Unscoped ideas, kept separate from the roadmap on purpose |
