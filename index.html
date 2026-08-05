@@ -1379,6 +1379,9 @@
       margin: 0 0 8px 0;
     }
     .modal-hint { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+    .modal-hint.status-ok   { color: var(--accent-green); }
+    .modal-hint.status-err  { color: var(--trend-dn); }
+    .modal-hint:empty { margin-top: 0; }
     .modal-hint-inline { font-weight: 400; color: var(--text-tertiary); }
     #settings-username, #settings-tmdb-key {
       width: 100%; padding: 8px 10px; margin-top: 6px;
@@ -2276,6 +2279,7 @@
       <button class="btn-primary" id="settings-save">Save &amp; reload</button>
       <button class="btn-secondary" id="settings-reset">Reset to default</button>
     </div>
+    <p class="modal-hint" id="settings-status" role="status" aria-live="polite"></p>
     <p class="modal-hint">Stored only in your browser's localStorage. Never sent anywhere except to Letterboxd and TMDB directly.</p>
   </div>
 </div>
@@ -4741,22 +4745,52 @@ const UI = (() => {
       document.getElementById('settings-default-user').textContent = CFG.DEFAULT_USERNAME;
       const saved = JSON.parse(localStorage.getItem('mg_user_settings') || '{}');
       document.getElementById('settings-tmdb-key').value = saved.tmdbKey || '';
+      const statusEl = document.getElementById('settings-status');
+      statusEl.textContent = ''; statusEl.className = 'modal-hint';
       settingsModal.classList.add('open');
     });
     document.getElementById('settings-close')?.addEventListener('click', () => settingsModal.classList.remove('open'));
     settingsModal?.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.remove('open'); });
 
-    document.getElementById('settings-save')?.addEventListener('click', () => {
-      const username = document.getElementById('settings-username').value.trim();
-      const tmdbKey  = document.getElementById('settings-tmdb-key').value.trim();
+    document.getElementById('settings-save')?.addEventListener('click', async () => {
+      const username  = document.getElementById('settings-username').value.trim();
+      const tmdbKey   = document.getElementById('settings-tmdb-key').value.trim();
+      const saveBtn   = document.getElementById('settings-save');
+      const statusEl  = document.getElementById('settings-status');
+      const setStatus = (msg, cls) => {
+        statusEl.textContent = msg;
+        statusEl.className = 'modal-hint' + (cls ? ' ' + cls : '');
+      };
+
+      const resultingUsername = username || CFG.DEFAULT_USERNAME;
+      const identityChanged   = resultingUsername.toLowerCase() !== CFG.USERNAME.toLowerCase();
+
+      // Only verify when a visitor is actually pointing at a NEW custom
+      // account — no need to round-trip Letterboxd to confirm our own
+      // default, and no need to re-verify an unchanged value.
+      if (username && identityChanged) {
+        saveBtn.disabled = true;
+        setStatus(`verifying @${username}…`);
+        const rows = await LB.fetchUserFilms(username);
+        saveBtn.disabled = false;
+
+        if (!rows) {
+          // Ambiguous on purpose: could be a nonexistent/private account, or
+          // just a flaky CORS proxy (see docs/KNOWN_ISSUES.md) — never block
+          // the visitor over something that might be our infrastructure's
+          // fault, just make sure they know it's unconfirmed.
+          setStatus(`couldn't verify @${username} — Letterboxd may be unreachable, or the account may be private. Saving anyway; sync will retry.`, 'status-err');
+        } else {
+          setStatus(`✓ found @${username} — ${rows.length}${rows.length === 72 ? '+' : ''} films visible`, 'status-ok');
+          await sleep(500); // let the confirmation register before reload
+        }
+      }
+
       // Clear cached history whenever the resulting identity differs from the
       // currently active one — covers custom->custom, custom->default (blank
       // field), and default->custom uniformly, so no account's history ever
       // lingers mislabeled as a different account's.
-      const resultingUsername = username || CFG.DEFAULT_USERNAME;
-      if (resultingUsername.toLowerCase() !== CFG.USERNAME.toLowerCase()) {
-        STORE.clearHistorySeed();
-      }
+      if (identityChanged) STORE.clearHistorySeed();
       CFG.saveUserSettings({ username: username || null, tmdbKey: tmdbKey || null });
       window.location.reload();
     });
