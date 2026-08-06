@@ -1319,7 +1319,7 @@
       display: flex;
       opacity: 1;
     }
-    .modal-content {
+    .modal-content, .modal {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: var(--r-lg);
@@ -1382,6 +1382,21 @@
     .modal-hint.status-ok   { color: var(--accent-green); }
     .modal-hint.status-err  { color: var(--trend-dn); }
     .modal-hint:empty { margin-top: 0; }
+
+    /* Shareable report card — deliberately its own visual treatment
+       (bigger type, no terminal chrome) since it's built to be viewed
+       standalone by someone who followed a link, not to match the rest
+       of the dashboard's density. */
+    .report-card { max-width: 480px; }
+    .report-card-body { padding: 4px 2px 2px; }
+    .report-card-user { display: flex; align-items: center; gap: 14px; }
+    .report-card-user .avatar { width: 48px; height: 48px; font-size: 16px; }
+    .report-card-name { font-weight: 600; color: var(--text-primary); font-size: 15px; }
+    .report-card-handle { color: var(--text-tertiary); font-size: 12px; }
+    .report-card-actions {
+      display: flex; align-items: center; gap: 10px; margin-top: 18px;
+      padding-top: 16px; border-top: 1px solid var(--border-muted);
+    }
     .modal-hint-inline { font-weight: 400; color: var(--text-tertiary); }
     #settings-username, #settings-tmdb-key {
       width: 100%; padding: 8px 10px; margin-top: 6px;
@@ -1953,7 +1968,12 @@
 
         <!-- Year in Film -->
         <div class="yif-wrap" id="yif-panel" style="display:none">
-          <div class="yif-heading"><svg class="ic" style="margin-right:5px"><use href="#i-calendar-stats"/></svg>year in film</div>
+          <div class="yif-heading" style="display:flex;align-items:center;justify-content:space-between">
+            <span><svg class="ic" style="margin-right:5px"><use href="#i-calendar-stats"/></svg>year in film</span>
+            <button class="icon-btn tipped tip-left" id="yif-share-btn" aria-label="Share this year as a report card" data-tip="Share report card" style="width:26px;height:26px">
+              <svg class="ic" style="width:14px;height:14px"><use href="#i-share"/></svg>
+            </button>
+          </div>
           <div class="yif-prose" id="yif-prose"></div>
           <div class="yif-stats" id="yif-chips"></div>
         </div>
@@ -2281,6 +2301,33 @@
     </div>
     <p class="modal-hint" id="settings-status" role="status" aria-live="polite"></p>
     <p class="modal-hint">Stored only in your browser's localStorage. Never sent anywhere except to Letterboxd and TMDB directly.</p>
+  </div>
+</div>
+<!-- Shareable report card — a standalone, addressable view of one year's
+     watch history, reachable via ?report=YYYY without navigating tabs. -->
+<div class="modal-overlay" id="report-modal">
+  <div class="modal report-card">
+    <div class="modal-header">
+      <h2 id="report-title">Report Card</h2>
+      <button class="icon-btn" id="report-close" aria-label="Close report card">
+        <svg class="ic"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <div class="report-card-body">
+      <div class="report-card-user">
+        <div class="avatar" id="report-avatar">JZ</div>
+        <div>
+          <div class="report-card-name" id="report-name">—</div>
+          <div class="report-card-handle" id="report-handle">—</div>
+        </div>
+      </div>
+      <div class="yif-prose" id="report-prose" style="font-size:15px;margin:18px 0;"></div>
+      <div class="yif-stats" id="report-chips"></div>
+      <div class="report-card-actions">
+        <button class="btn-primary" id="report-share-btn">Copy link to this report card</button>
+        <a class="btn-secondary" id="report-view-link" href="#" style="text-decoration:none;display:inline-flex;align-items:center;">View full dashboard →</a>
+      </div>
+    </div>
   </div>
 </div>
 <div class="modal-overlay" id="about-modal">
@@ -2992,57 +3039,42 @@ const RENDER = (() => {
   }
 
   // ── Year in Film ──────────────────────────────────────────
-  function renderYearInFilm(history, now) {
-    const panel = $('yif-panel');
-    const prose = $('yif-prose');
-    const chips = $('yif-chips');
-    if (!panel || !prose || !chips) return;
+  // Computation is shared between the live Overview panel (current year
+  // only) and the shareable report card (§reportCard, any year) — one
+  // place computing "what happened in year Y," two places displaying it.
+  function computeYearInFilm(history, year) {
+    const thisYear = history.filter(e => e.watchedDate?.startsWith(year));
+    if (thisYear.length < 5) return null;
 
-    const currentYear = String(now.getFullYear());
-    const thisYear = history.filter(e => e.watchedDate?.startsWith(currentYear));
-    if (thisYear.length < 5) { panel.style.display = 'none'; return; }
-
-    panel.style.display = '';
-
-    // Core stats
-    const avgRat  = DATA.avgRating(thisYear);
+    const avgRat   = DATA.avgRating(thisYear);
     const totalMin = thisYear.reduce((s,e) => s+(e.runtime||0), 0);
 
-    // Genre breakdown
     const gc = {};
     thisYear.forEach(e => (e.genres||[]).forEach(g => { gc[g]=(gc[g]||0)+1; }));
-    const topGenre   = Object.entries(gc).sort((a,b)=>b[1]-a[1])[0];
-    const genrePct   = topGenre && thisYear.length ? Math.round(topGenre[1]/thisYear.length*100) : null;
+    const topGenre = Object.entries(gc).sort((a,b)=>b[1]-a[1])[0];
+    const genrePct = topGenre && thisYear.length ? Math.round(topGenre[1]/thisYear.length*100) : null;
 
-    // Decades spanned
-    const decadeSet  = new Set(thisYear.map(e=>e.decade).filter(Boolean));
+    const decadeSet = new Set(thisYear.map(e=>e.decade).filter(Boolean));
 
-    // Most active month
     const mc = {};
     thisYear.forEach(e => { if (e.watchedDate) { const m=e.watchedDate.slice(0,7); mc[m]=(mc[m]||0)+1; } });
-    const bestMonth  = Object.entries(mc).sort((a,b)=>b[1]-a[1])[0];
+    const bestMonth = Object.entries(mc).sort((a,b)=>b[1]-a[1])[0];
     const bestMonthName = bestMonth ? new Date(bestMonth[0]+'-01').toLocaleString('default',{month:'long'}) : null;
     const bestMonthCount = bestMonth?.[1] || 0;
 
-    // New directors this year (not watched before this year)
-    const beforeYear = new Set(history.filter(e => e.watchedDate && e.watchedDate < currentYear+'-01-01').map(e=>e.director).filter(Boolean));
-    const newDirs    = [...new Set(thisYear.map(e=>e.director).filter(Boolean))].filter(d => !beforeYear.has(d));
+    const beforeYear = new Set(history.filter(e => e.watchedDate && e.watchedDate < year+'-01-01').map(e=>e.director).filter(Boolean));
+    const newDirs = [...new Set(thisYear.map(e=>e.director).filter(Boolean))].filter(d => !beforeYear.has(d));
 
-    // Streak
     const yearStreak = calcLongestStreak(thisYear);
 
-    // Prose assembly
     const parts = [];
-    parts.push(`In <strong>${currentYear}</strong>, you've watched <strong>${thisYear.length} film${thisYear.length>1?'s':''}</strong>${decadeSet.size > 1 ? ` across <strong>${decadeSet.size} decades</strong>` : ''}.`);
+    parts.push(`In <strong>${year}</strong>, you've watched <strong>${thisYear.length} film${thisYear.length>1?'s':''}</strong>${decadeSet.size > 1 ? ` across <strong>${decadeSet.size} decades</strong>` : ''}.`);
     if (topGenre && genrePct) parts.push(`<strong>${topGenre[0]}</strong> has been your dominant genre (${genrePct}% of watches).`);
     if (avgRat) parts.push(`Your average rating this year is <strong>★${avgRat.toFixed(2)}</strong>.`);
     if (newDirs.length) parts.push(`You discovered <strong>${newDirs.length} new director${newDirs.length>1?'s':''}</strong>${newDirs.length <= 3 ? ` — ${newDirs.join(', ')}` : ''}.`);
     if (bestMonthName && bestMonthCount > 1) parts.push(`Most active month: <strong>${bestMonthName}</strong> (${bestMonthCount} films).`);
     if (yearStreak > 2) parts.push(`Your best streak this year: <strong>${yearStreak} days</strong> straight.`);
 
-    prose.innerHTML = parts.join(' ');
-
-    // Stat chips
     const chipData = [
       totalMin >= 60 ? { label: 'Watch time', val: Math.round(totalMin/60)+'h' } : null,
       { label: 'Films', val: String(thisYear.length) },
@@ -3051,7 +3083,62 @@ const RENDER = (() => {
       decadeSet.size ? { label: 'Decades', val: String(decadeSet.size) } : null,
     ].filter(Boolean);
 
-    chips.innerHTML = chipData.map(c => `<span class="yif-chip"><strong>${c.val}</strong> ${c.label}</span>`).join('');
+    return { proseHtml: parts.join(' '), chipData };
+  }
+
+  function renderYearInFilm(history, now) {
+    const panel = $('yif-panel');
+    const prose = $('yif-prose');
+    const chips = $('yif-chips');
+    if (!panel || !prose || !chips) return;
+
+    const currentYear = String(now.getFullYear());
+    const result = computeYearInFilm(history, currentYear);
+    if (!result) { panel.style.display = 'none'; return; }
+
+    panel.style.display = '';
+    prose.innerHTML = result.proseHtml;
+    chips.innerHTML = result.chipData.map(c => `<span class="yif-chip"><strong>${c.val}</strong> ${c.label}</span>`).join('');
+  }
+
+  // ── Shareable report card ──────────────────────────────────
+  // Standalone, addressable view of one year's watch history — reachable
+  // via ?report=YYYY without navigating tabs, so a link can be shared
+  // directly rather than "go to overview and scroll."
+  function reportCard(history, year, displayName, handle) {
+    const modal  = $('report-modal');
+    const prose  = $('report-prose');
+    const chips  = $('report-chips');
+    if (!modal || !prose || !chips) return false;
+
+    const result = computeYearInFilm(history, year);
+    if (!result) return false;
+
+    $('report-title').textContent = `${year} Report Card`;
+    $('report-name').textContent  = displayName || handle;
+    $('report-handle').textContent = '@' + handle;
+    const avatarSrc = document.getElementById('sidebar-avatar')?.querySelector('img')?.src;
+    $('report-avatar').innerHTML = avatarSrc
+      ? `<img src="${avatarSrc}" alt="avatar">`
+      : (handle || '?').slice(0, 2).toUpperCase();
+
+    prose.innerHTML = result.proseHtml;
+    chips.innerHTML = result.chipData.map(c => `<span class="yif-chip"><strong>${c.val}</strong> ${c.label}</span>`).join('');
+
+    const dashboardUrl = new URL(window.location.href);
+    dashboardUrl.searchParams.delete('report');
+    $('report-view-link').href = dashboardUrl.toString();
+
+    // Shareable link always reflects THIS card's year, regardless of
+    // whether the card was opened via the panel button or a direct
+    // ?report=YYYY link.
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set('report', year);
+    const shareBtn = $('report-share-btn');
+    if (shareBtn) shareBtn.dataset.shareUrl = shareUrl.toString();
+
+    modal.classList.add('open');
+    return true;
   }
 
   // ── Contribution graph ────────────────────────────────────
@@ -4579,7 +4666,7 @@ const RENDER = (() => {
 
   function closeCanonOverlay() { _closeCanon(); }
 
-  return { overview, diary, stats, canon, _diaryPage: renderDiaryPage, _openCanon, _openCanon_tier, _closeCanon, mgHash };
+  return { overview, diary, stats, canon, _diaryPage: renderDiaryPage, _openCanon, _openCanon_tier, _closeCanon, mgHash, reportCard };
 })();
 
 /* ============================================================
@@ -4800,6 +4887,39 @@ const UI = (() => {
       localStorage.removeItem('mg_user_settings');
       window.location.reload();
     });
+
+    // Report card modal
+    const reportModal = document.getElementById('report-modal');
+    document.getElementById('report-close')?.addEventListener('click', () => reportModal.classList.remove('open'));
+    reportModal?.addEventListener('click', (e) => { if (e.target === reportModal) reportModal.classList.remove('open'); });
+
+    // "Share" button inside the Year in Film panel — builds a link to
+    // *this specific year's* report card (not just the dashboard root)
+    // and opens the same card locally as an immediate preview.
+    document.getElementById('yif-share-btn')?.addEventListener('click', () => {
+      const year = String(new Date().getFullYear());
+      const handle = CFG.USERNAME;
+      const displayName = document.querySelector('.user-name')?.textContent?.replace(/^@/, '') || handle;
+      RENDER.reportCard(STORE.getHistory(), year, displayName, handle);
+    });
+
+    document.getElementById('report-share-btn')?.addEventListener('click', async (e) => {
+      const url = e.currentTarget.dataset.shareUrl || window.location.href;
+      const title = `${document.getElementById('report-title').textContent} — MovieGit`;
+      const text  = document.getElementById('report-prose').textContent;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title, text, url });
+        } else {
+          await navigator.clipboard.writeText(url);
+          toast('Report card link copied ✓', 'success');
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          try { await navigator.clipboard.writeText(url); toast('Link copied ✓', 'success'); } catch {}
+        }
+      }
+    });
   }
 
   function toast(msg, type = 'info') {
@@ -4897,6 +5017,18 @@ const MG = (() => {
     // Activate tab from URL param
     if (urlTab && urlTab !== 'overview') {
       setTimeout(() => UI._switchTab?.(urlTab), 0);
+    }
+
+    // ?report=YYYY — open the shareable report card directly, so a shared
+    // link works without the recipient having to find the panel themselves.
+    const urlReport = params.get('report');
+    if (urlReport && /^\d{4}$/.test(urlReport)) {
+      const handle = urlUser || CFG.USERNAME;
+      const displayName = document.querySelector('.user-name')?.textContent?.replace(/^@/, '') || handle;
+      setTimeout(() => {
+        const opened = RENDER.reportCard(history, urlReport, displayName, handle);
+        if (!opened) UI.toast(`No report card available for ${urlReport} — not enough films logged that year.`, 'error');
+      }, 0);
     }
 
     // Kick off TMDB enrichment in background
