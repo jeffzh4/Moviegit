@@ -13,9 +13,9 @@ The product already borrows GitHub's *profile* vocabulary; this borrows its *dep
 
 Why it's not on the roadmap yet: it needs a real design pass on the interaction model (a force-directed graph is expensive to make legible, not just expensive to compute) before it's scoped.
 
-### Shareable taste-diff report card
+### Shareable diff/merge report card (extending the single-year card that shipped)
 
-`mg diff <year1> <year2>` and `mg merge <user>` already compute real taste-comparison data — a year-over-year diff and a cross-user compatibility score. Neither currently produces anything shareable outside the terminal or the dashboard session it ran in. A single-URL, no-login "report card" (static-rendered, matching the site's existing zero-backend constraint) would turn `mg merge friend-handle` into something an account owner could actually send someone, the way GitHub's own contribution graph gets embedded in a resume or a Twitter bio.
+A single-URL, no-login report card shipped for the single-year case — `?report=YYYY` opens a standalone summary of one year's watching, linkable directly (see [CHANGELOG.md](../CHANGELOG.md)). `mg diff <year1> <year2>` and `mg merge <user>` still don't have a shareable equivalent: both compute real comparison data (a year-over-year diff, a cross-user compatibility score) that currently only renders inside the terminal or a live dashboard session. Extending the same `?report=` mechanism to a `?report=diff&from=Y1&to=Y2` or `?report=merge&vs=user` form is the natural next step — the hard part (a standalone, addressable card view with its own share affordance) is already built; what's missing is centralizing the diff/merge math in `cli/src/domain.js` the way `blame`/`wrapped` already are, so the card isn't a third reimplementation of logic that already exists twice.
 
 ### A recommendation engine that argues from divergence, not popularity
 
