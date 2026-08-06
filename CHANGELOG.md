@@ -6,17 +6,21 @@ For the reasoning behind the larger changes — not just what changed but why �
 
 ---
 
-## Unreleased (engineering hardening, on `main`)
+## Unreleased (engineering hardening + PM-portfolio pass, on `main`)
 
 **2026-07-27 → 2026-08-02**
 
-A six-commit refactor pass, each independently reviewed and verified live before merging, addressing duplication between the browser dashboard and the CLI that had already caused one real bug (see below).
+A six-commit refactor pass, each independently reviewed and verified live before merging, addressing duplication between the browser dashboard and the CLI that had already caused one real bug (see below) — followed by a documentation and product-facing pass.
 
 - **Extracted `cli/src/domain.js`** as the single canonical implementation of logic that had been written twice: films-grid parsing, TMDB field extraction, rating math, film lookup, and the `blame`/`merge`/`wrapped` formulas. The CLI imports it directly; the dashboard inlines it via a new dev-time sync script (`scripts/sync-domain.py`), with a CI-enforced drift check (`scripts/check-domain-sync.py`) so the two copies can't silently diverge again.
 - **Fixed the bug the refactor was named for**: `cherry-pick`'s film-matching had quietly regressed to a narrower 2-tier match than `blame`'s canonical 3-tier match, so an ambiguous query could resolve to a different film depending on which command you ran.
 - **Caught and fixed a packaging defect before it shipped**: the domain module was initially placed outside the CLI's npm package root, which would have broken `npm install -g moviegit` for every user. Relocated inside the package, verified via `npm pack --dry-run` in CI.
 - Consolidated average-rating math, film-matching, HTML-escaping, `localStorage` JSON access, commit hashing, longest-streak calculation, "time ago" formatting, and star-glyph rendering — each of which had been reimplemented at 2–7 separate call sites across the two surfaces.
 - **GitHub-esque polish**: replaced the sidebar's five separate per-genre bars with a single continuous segmented strip, matching GitHub's own repo-language-bar pattern exactly.
+- **Added full product/engineering documentation** — PRD, design doc, architecture doc, roadmap, known issues, future features, and this changelog, all cross-referenced (see `docs/`).
+- **Added `docs/CASE_STUDY.md`** — a full post-mortem of the RSS sync bug's four debugging attempts, three of which were real, correctly-fixed bugs that weren't the actual root cause.
+- **Settings panel now validates a custom username before committing to it** — fetches the account's films grid before saving, shows a CLI-`mg login`-style confirmation on success, and an honestly-worded (non-blocking) warning if the account can't be verified.
+- **Added a shareable report card** (`?report=YYYY`) — a standalone, linkable year-in-review view, reachable via a new share button on the Overview tab's Year in Film panel. Also fixed a pre-existing bug this surfaced: the `.modal` class had no background styling of its own.
 
 ## v1.5 — 2026-07-22
 
