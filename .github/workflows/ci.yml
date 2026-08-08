@@ -15,7 +15,7 @@ jobs:
           python-version: '3.x'
       - name: Check index.html brace balance
         run: python3 scripts/check-syntax.py index.html
-      - name: Check MG_DOMAIN block matches domain/letterboxd.mjs
+      - name: Check MG_DOMAIN block matches cli/src/domain.js
         run: python3 scripts/check-domain-sync.py
 
   cli-syntax:
