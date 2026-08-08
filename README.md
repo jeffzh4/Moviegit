@@ -18,6 +18,8 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/jeffzh4/Moviegit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jeffzh4/Moviegit/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/jeffzh4/Moviegit/actions/workflows/a11y.yml"><img alt="Accessibility" src="https://github.com/jeffzh4/Moviegit/actions/workflows/a11y.yml/badge.svg"></a>
   <img alt="Single file" src="https://img.shields.io/badge/build-zero--config-22C55E?style=flat-square">
   <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-CDN--only-1E293B?style=flat-square">
   <img alt="Backend" src="https://img.shields.io/badge/backend-none-334155?style=flat-square">

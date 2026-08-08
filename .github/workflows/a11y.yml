@@ -1,0 +1,40 @@
+name: Accessibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  axe-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Serve index.html
+        run: python3 -m http.server 7821 &
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 10); do
+            curl -sf http://localhost:7821 > /dev/null && break
+            sleep 1
+          done
+      # @axe-core/cli drives a headless Chrome itself — no persistent
+      # dependency added to this repo, matching the zero-runtime-dependency
+      # constraint documented in docs/ARCHITECTURE.md §1. This checks the
+      # page's structural/static accessibility (landmarks, labels, contrast,
+      # focus order) — it can't exercise every localStorage-driven view a
+      # real visit populates, but it's a real, machine-checked floor under
+      # the accessibility claims in docs/DESIGN.md §6, not just a written
+      # assertion.
+      #
+      # Non-blocking (no --exit) for now: the first real scan found 71
+      # color-contrast violations (--text-tertiary sits at 4.12:1 against
+      # --bg-canvas, just under WCAG AA's 4.5:1 for normal text — see
+      # docs/KNOWN_ISSUES.md). Making this blocking before that's fixed
+      # would just make CI permanently red, which hides the signal instead
+      # of surfacing it. Flip to --exit once the contrast pass lands.
+      - name: axe-core scan (WCAG 2 A/AA, reporting only)
+        run: npx --yes @axe-core/cli@latest http://localhost:7821 --tags wcag2a,wcag2aa || true

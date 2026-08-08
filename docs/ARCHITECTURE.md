@@ -135,4 +135,6 @@ There is no test framework for either surface — a deliberate, disclosed choice
 - **`scripts/check-domain-sync.py`** — fails if the dashboard's inlined domain logic has drifted from `cli/src/domain.js` (§3).
 - **CLI job** — `node --check` on every source file, `mg --help` actually runs, and `npm pack --dry-run` is inspected for contents — the last of which exists specifically because of the packaging bug in §5.
 
-All three run on every push and pull request via `.github/workflows/ci.yml`, requiring zero secrets — appropriate for a project with no backend to hold credentials for in the first place.
+These three run on every push and pull request via `.github/workflows/ci.yml`, requiring zero secrets — appropriate for a project with no backend to hold credentials for in the first place.
+
+A separate workflow, `.github/workflows/a11y.yml`, runs an `axe-core` scan (via `npx @axe-core/cli`, so no persistent dependency is added to the repo) against the served page for WCAG 2 A/AA violations. It's deliberately **non-blocking** — the first real run found 71 color-contrast violations (see [KNOWN_ISSUES.md](KNOWN_ISSUES.md#color-contrast-falls-short-of-wcag-aa-in-70-places-measured-not-assumed)), and making the job hard-fail before that backlog is cleared would just turn a real signal into permanent noise. This is the same reasoning that keeps `check-syntax.py`/`check-domain-sync.py` narrow and targeted rather than a generic test suite: a verification gate is only useful while it's still telling you something you didn't already know.
