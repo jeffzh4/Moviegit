@@ -21,12 +21,6 @@ This is the committed, ordered plan — work that's scoped and intended, not a b
 
 **Definition of done:** `npm install -g moviegit` from a clean machine installs a working CLI; the README's install line is true rather than aspirational.
 
-### 3. Fix the measured color-contrast gap, then make the accessibility CI job blocking
-
-**Why it's next:** an `axe-core` scan wired into CI found 71 real WCAG AA color-contrast violations — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md#color-contrast-falls-short-of-wcag-aa-in-70-places-measured-not-assumed) for the measured numbers. The fix is narrow (`--text-tertiary` needs a small lightness adjustment in both themes), but the CI job is deliberately non-blocking until it lands — flipping it to a hard failure on an already-known, unfixed backlog would just make the accessibility badge permanently red instead of a meaningful signal.
-
-**Definition of done:** the axe-core scan reports zero WCAG 2 A/AA violations; `.github/workflows/a11y.yml` gains the `--exit` flag so future regressions actually fail CI.
-
 ## Mid-term
 
 ### 3. A settings-driven multi-user experience that doesn't require reading source
