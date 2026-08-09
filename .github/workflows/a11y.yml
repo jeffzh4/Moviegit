@@ -38,13 +38,21 @@ jobs:
       # against --bg-tertiary, ~3.97:1 vs WCAG AA's 4.5:1). Both are fixed —
       # see docs/KNOWN_ISSUES.md for the full story.
       #
-      # --chrome-options=no-sandbox,disable-dev-shm-usage: standard headless-
-      # Chrome-under-CI flags. The GitHub Actions runner's restricted
-      # namespaces make Chrome's own sandbox (and the default /dev/shm size)
-      # unreliable, which crashes the browser with a generic tool error
-      # (exit code 2) rather than a real violations report (exit code 1) —
-      # that crash, not a contrast regression, is why this job first failed
-      # after being flipped to blocking. Confirmed locally that the actual
-      # scan is clean (0 violations) once Chrome can start at all.
+      # --chrome-options: standard headless-Chrome-under-CI sandbox flags.
+      #
+      # @axe-core/cli drives Chrome through selenium-webdriver + the npm
+      # `chromedriver` package, which bundles its own pinned chromedriver
+      # binary. The runner's system Chrome is on its own, newer release
+      # train, so the two mismatch and Selenium throws SessionNotCreatedError
+      # ("This version of ChromeDriver only supports Chrome version X") —
+      # surfaced as a generic exit code 2, not a real violations report
+      # (which is exit code 1). This — not a contrast regression — is why
+      # the job first failed after being flipped to blocking; it was masked
+      # entirely while the job was non-blocking. browser-driver-manager
+      # (also npx, no persistent dependency) installs a matched Chrome +
+      # chromedriver pair before the scan runs, which is the exact fix
+      # axe-core's own error message names.
+      - name: Sync Chrome + chromedriver versions
+        run: npx --yes browser-driver-manager install chrome
       - name: axe-core scan (WCAG 2 A/AA)
         run: npx --yes @axe-core/cli@latest http://localhost:7821 --tags wcag2a,wcag2aa --load-delay 800 --chrome-options="no-sandbox,disable-setuid-sandbox,disable-dev-shm-usage" --exit
