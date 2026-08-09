@@ -518,6 +518,13 @@
     [data-theme="light"] .mi-rewatch{ background: rgba(130,80,223,.1); }
 
     .mcard .mv { font-size: 24px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .mv.skel {
+      color: transparent; display: inline-block; min-width: 2.4em; min-height: 1em;
+      border-radius: var(--r-sm); background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-overlay) 37%, var(--bg-tertiary) 63%);
+      background-size: 400% 100%; animation: skel-shimmer 1.4s ease infinite;
+    }
+    @keyframes skel-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) { .mv.skel { animation: none; } }
     .mcard .ml { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
     .mcard .md {
       font-size: 11px;
@@ -1930,25 +1937,25 @@
         <div class="metrics-row">
           <div class="mcard">
             <div class="mcard-icon mi-rating"><svg class="ic"><use href="#i-star"/></svg></div>
-            <div class="mv" id="m-rating">—</div>
+            <div class="mv skel" id="m-rating">—</div>
             <div class="ml">avg rating</div>
             <div class="md nt" id="md-rating"><svg class="ic"><use href="#i-minus"/></svg><span>no comparison yet</span></div>
           </div>
           <div class="mcard">
             <div class="mcard-icon mi-time"><svg class="ic"><use href="#i-clock"/></svg></div>
-            <div class="mv" id="m-time">—</div>
+            <div class="mv skel" id="m-time">—</div>
             <div class="ml">total watch time</div>
             <div class="md nt" id="md-time"><svg class="ic"><use href="#i-minus"/></svg><span>calculating…</span></div>
           </div>
           <div class="mcard">
             <div class="mcard-icon mi-month"><svg class="ic"><use href="#i-calendar"/></svg></div>
-            <div class="mv" id="m-month">—</div>
+            <div class="mv skel" id="m-month">—</div>
             <div class="ml">this month</div>
             <div class="md nt" id="md-month"><svg class="ic"><use href="#i-minus"/></svg><span>—</span></div>
           </div>
           <div class="mcard">
             <div class="mcard-icon mi-rewatch"><svg class="ic"><use href="#i-refresh"/></svg></div>
-            <div class="mv" id="m-rewatches">—</div>
+            <div class="mv skel" id="m-rewatches">—</div>
             <div class="ml">rewatches</div>
             <div class="md nt" id="md-rewatches"><svg class="ic"><use href="#i-minus"/></svg><span>—</span></div>
           </div>
@@ -2271,7 +2278,7 @@
 </div>
 
 <!-- Toast -->
-<div class="toast" id="toast">
+<div class="toast" id="toast" role="status" aria-live="polite">
   <svg class="ic" id="toast-icon"><use href="#i-check"/></svg>
   <span id="toast-msg"></span>
 </div>
@@ -3255,6 +3262,8 @@ const RENDER = (() => {
 
     const rewatchCount = history.filter(e => e.rewatch).length;
 
+    const loading = history.length === 0;
+    ['m-rating', 'm-time', 'm-month', 'm-rewatches'].forEach(id => $(id).classList.toggle('skel', loading));
     $('m-rating').textContent   = avgRat;
     $('m-time').textContent     = timeStr;
     $('m-month').textContent    = monthCount;
