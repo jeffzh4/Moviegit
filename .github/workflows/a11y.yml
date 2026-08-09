@@ -52,7 +52,18 @@ jobs:
       # (also npx, no persistent dependency) installs a matched Chrome +
       # chromedriver pair before the scan runs, which is the exact fix
       # axe-core's own error message names.
+      #
+      # browser-driver-manager writes the paths it installed to
+      # ~/.browser-driver-manager/.env as CHROME_TEST_PATH="..." /
+      # CHROMEDRIVER_TEST_PATH="..." (which is exactly what @axe-core/cli
+      # reads via process.env) — but it doesn't export them into the shell
+      # itself, and each `run:` step is a fresh shell, so the very first
+      # attempt at this installed the right binaries and then still ran
+      # the scan against the runner's mismatched system Chrome. Appending
+      # that file to $GITHUB_ENV carries the vars into the next step.
       - name: Sync Chrome + chromedriver versions
-        run: npx --yes browser-driver-manager install chrome
+        run: |
+          npx --yes browser-driver-manager install chrome
+          sed 's/="\(.*\)"$/=\1/' "$HOME/.browser-driver-manager/.env" >> "$GITHUB_ENV"
       - name: axe-core scan (WCAG 2 A/AA)
         run: npx --yes @axe-core/cli@latest http://localhost:7821 --tags wcag2a,wcag2aa --load-delay 800 --chrome-options="no-sandbox,disable-setuid-sandbox,disable-dev-shm-usage" --exit
