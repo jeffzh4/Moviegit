@@ -30,11 +30,13 @@ jobs:
       # the accessibility claims in docs/DESIGN.md §6, not just a written
       # assertion.
       #
-      # Non-blocking (no --exit) for now: the first real scan found 71
-      # color-contrast violations (--text-tertiary sits at 4.12:1 against
-      # --bg-canvas, just under WCAG AA's 4.5:1 for normal text — see
-      # docs/KNOWN_ISSUES.md). Making this blocking before that's fixed
-      # would just make CI permanently red, which hides the signal instead
-      # of surfacing it. Flip to --exit once the contrast pass lands.
-      - name: axe-core scan (WCAG 2 A/AA, reporting only)
-        run: npx --yes @axe-core/cli@latest http://localhost:7821 --tags wcag2a,wcag2aa || true
+      # --load-delay 800: every .tab-panel plays a 200ms fadeIn on mount, and
+      # axe's default synchronous snapshot can catch it mid-fade (opacity 0),
+      # which reads as a false-positive contrast failure on nearly every
+      # visible text node. The first real scan reported 71 violations for
+      # exactly this reason; only 3 were real (--text-tertiary/.ss-tile .l
+      # against --bg-tertiary, ~3.97:1 vs WCAG AA's 4.5:1). Both are fixed —
+      # see docs/KNOWN_ISSUES.md for the full story — so this job is now
+      # blocking (--exit).
+      - name: axe-core scan (WCAG 2 A/AA)
+        run: npx --yes @axe-core/cli@latest http://localhost:7821 --tags wcag2a,wcag2aa --load-delay 800 --exit

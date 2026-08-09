@@ -21,6 +21,7 @@ A six-commit refactor pass, each independently reviewed and verified live before
 - **Added `docs/CASE_STUDY.md`** — a full post-mortem of the RSS sync bug's four debugging attempts, three of which were real, correctly-fixed bugs that weren't the actual root cause.
 - **Settings panel now validates a custom username before committing to it** — fetches the account's films grid before saving, shows a CLI-`mg login`-style confirmation on success, and an honestly-worded (non-blocking) warning if the account can't be verified.
 - **Added a shareable report card** (`?report=YYYY`) — a standalone, linkable year-in-review view, reachable via a new share button on the Overview tab's Year in Film panel. Also fixed a pre-existing bug this surfaced: the `.modal` class had no background styling of its own.
+- **Live CI badge + accessibility CI check** (`.github/workflows/a11y.yml`, axe-core, WCAG 2 A/AA). First run reported 71 color-contrast violations; root cause was mostly a scan-timing artifact (axe snapshotting mid `fadeIn`), not a real defect — corrected with `--load-delay`, which reduced it to 3 genuine violations (`--text-tertiary` at 3.97:1 against `--bg-tertiary`). Both fixed (`--text-tertiary` now `#858d98` dark / `#616b78` light, 0 violations verified); the job now runs with `--exit` (blocking).
 
 ## v1.5 — 2026-07-22
 
