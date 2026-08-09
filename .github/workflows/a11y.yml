@@ -36,7 +36,15 @@ jobs:
       # visible text node. The first real scan reported 71 violations for
       # exactly this reason; only 3 were real (--text-tertiary/.ss-tile .l
       # against --bg-tertiary, ~3.97:1 vs WCAG AA's 4.5:1). Both are fixed —
-      # see docs/KNOWN_ISSUES.md for the full story — so this job is now
-      # blocking (--exit).
+      # see docs/KNOWN_ISSUES.md for the full story.
+      #
+      # --chrome-options=no-sandbox,disable-dev-shm-usage: standard headless-
+      # Chrome-under-CI flags. The GitHub Actions runner's restricted
+      # namespaces make Chrome's own sandbox (and the default /dev/shm size)
+      # unreliable, which crashes the browser with a generic tool error
+      # (exit code 2) rather than a real violations report (exit code 1) —
+      # that crash, not a contrast regression, is why this job first failed
+      # after being flipped to blocking. Confirmed locally that the actual
+      # scan is clean (0 violations) once Chrome can start at all.
       - name: axe-core scan (WCAG 2 A/AA)
-        run: npx --yes @axe-core/cli@latest http://localhost:7821 --tags wcag2a,wcag2aa --load-delay 800 --exit
+        run: npx --yes @axe-core/cli@latest http://localhost:7821 --tags wcag2a,wcag2aa --load-delay 800 --chrome-options="no-sandbox,disable-setuid-sandbox,disable-dev-shm-usage" --exit
