@@ -26,6 +26,10 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
 </p>
 
+<p align="center">
+  <img src="docs/assets/screenshot-overview.png" alt="MovieGit overview: a contribution graph, metric cards, hottest takes, and a recent-commits feed styled after a GitHub profile" width="820">
+</p>
+
 ---
 
 ## Overview
@@ -140,6 +144,10 @@ this month: 2 films · current streak: 1d
 enrichment: 136/136 (100%) ✓
 working tree clean
 ```
+
+<p align="center">
+  <img src="docs/assets/screenshot-terminal.png" alt="The mg terminal open over the dashboard, showing mg log output styled as a git commit history — hash, date, title, rating, director" width="820">
+</p>
 
 ### Command reference
 
