@@ -34,11 +34,11 @@
 
 ## Overview
 
-**MovieGit** reimagines your film-watching history through the visual language of a GitHub profile. Watching a film is a **commit**. A run of daily watches is a **contribution streak**. Your diary is a **commit log**, complete with deterministic hashes. Your favorite films are **canon**, pinned like starred repositories.
+**MovieGit** renders your film history in the visual language of a GitHub profile. Watching a film is a **commit**. A run of daily watches is a **contribution streak**. Your diary is a **commit log** with deterministic hashes. Your favorite films are **canon**, pinned like starred repositories.
 
-It is a single, self-contained `index.html` — **no build step, no server, no tracking**. It reads a public Letterboxd account, enriches each film with poster/director/genre data from TMDB, and renders the whole thing client-side. Everything persists in your browser's `localStorage`.
+It is a single, self-contained `index.html` — **no build step, no server, no tracking**. It reads a public Letterboxd account, enriches each film with TMDB poster, director, and genre data, and renders everything client-side. Data persists in your browser's `localStorage`.
 
-The core metaphor, taken all the way: MovieGit ships a working **command line**, `mg`, with 28 git-style commands that operate over your watch history — `mg log`, `mg commit`, `mg diff 2024 2025`, `mg blame <film>`, `mg merge <user>`, and more.
+The metaphor extends to a working **command line**, `mg`, with 28 git-style commands over your watch history — `mg log`, `mg commit`, `mg diff 2024 2025`, `mg blame <film>`, `mg merge <user>`, and more.
 
 ---
 
@@ -61,7 +61,7 @@ The core metaphor, taken all the way: MovieGit ships a working **command line**,
 
 ## Documentation
 
-This README covers the product surface. The full reasoning behind it — what was decided, why, and what's still open — lives in [`docs/`](docs/):
+This README covers the product surface. The reasoning behind it — what was decided, why, and what's still open — lives in [`docs/`](docs/):
 
 | Document | What it covers |
 |---|---|
@@ -78,10 +78,10 @@ This README covers the product surface. The full reasoning behind it — what wa
 
 ## Highlights
 
-- **Contribution graph** — a 52-week heatmap of everything you watched, colored by intensity, with per-day film tooltips and milestone markers.
-- **Live sync from Letterboxd** — rate a film on Letterboxd and it appears here within minutes. No diary entry, no review, no manual export required (see [How Sync Works](#how-sync-works)).
-- **15-panel stats view** — decades, directors, taste DNA, taste drift, blind spots, hidden discoveries, director-filmography completion, and more.
-- **The `mg` terminal** — a genuine git-flavored shell over your data. 28 commands.
+- **Contribution graph** — a 52-week heatmap of everything you watched, with per-day film tooltips and milestone markers.
+- **Live sync from Letterboxd** — rate a film and it appears here within minutes. No diary entry, review, or export required (see [How Sync Works](#how-sync-works)).
+- **15-panel stats view** — decades, directors, taste DNA, taste drift, blind spots, hidden discoveries, filmography completion, and more.
+- **The `mg` terminal** — a git-flavored shell over your data, 28 commands.
 - **TMDB enrichment** — posters, directors, genres, runtimes, and consensus ratings, fetched lazily and cached.
 - **GitHub-faithful design** — dark by default, monospace throughout, underline nav, tooltips, focus rings, light/dark toggle.
 - **Fully client-side** — one HTML file, CDN-only dependencies, works offline once cached.
@@ -91,7 +91,7 @@ This README covers the product surface. The full reasoning behind it — what wa
 ## The Dashboard
 
 ### Overview
-- **52-week contribution graph** — films watched per day as a GitHub-style heatmap (5 intensity levels). Hover any cell for the film titles logged that day. Gold milestone markers appear at your 50th / 100th / 250th / 500th film.
+- **52-week contribution graph** — films per day as a GitHub-style heatmap (5 intensity levels). Hover a cell for that day's titles. Gold markers flag your 50th / 100th / 250th / 500th film.
 - **"Last synced" indicator** with a manual **↻ sync** button.
 - **Metric cards** — average rating, total watch time, films this month, rewatches.
 - **Hottest takes** — the three films where your rating diverges most from TMDB consensus.
@@ -103,7 +103,7 @@ This README covers the product surface. The full reasoning behind it — what wa
 - **Filters** — by year, genre, rating, and a canon-only toggle.
 - **Fuzzy search** across titles (press `/` from anywhere).
 - **`mg log` view** — a terminal-style toggle rendering every film as
-  `[hash]  [date]  [title (year)]  [★★★]  — Director`, with rewatch/canon badges. The 7-character hash is a deterministic FNV-1a of title + year, stable across sessions.
+  `[hash]  [date]  [title (year)]  [★★★]  — Director`, with rewatch/canon badges. The 7-character hash is a deterministic FNV-1a of title + year.
 
 ### Stats (15 panels)
 | Panel | What it shows |
@@ -133,7 +133,7 @@ This README covers the product surface. The full reasoning behind it — what wa
 
 ## The mg Terminal
 
-Press **`` ` ``** (backtick) or click the **terminal icon** in the header to open a bottom-drawer command line. It parses quoted arguments, keeps per-session history (↑/↓), and speaks git.
+Press **`` ` ``** (backtick) or click the header's **terminal icon** to open a bottom-drawer command line. It parses quoted arguments, keeps per-session history (↑/↓), and speaks git.
 
 ```
 mg@islaby:~$ status
@@ -218,9 +218,8 @@ mg blame prestige
 mg merge someuser
 ```
 
-Reads are public and need no authentication — the CLI hits Letterboxd directly, so
-no CORS proxy is involved. Commit hashes match the dashboard exactly, so a hash in
-your terminal is the same hash in the browser.
+Reads are public and need no authentication — the CLI hits Letterboxd directly, with
+no CORS proxy. Commit hashes match the dashboard exactly.
 
 **Logging films from the shell:**
 
@@ -230,26 +229,25 @@ mg commit "Weapons" --rating 4 --liked --date 2026-06-02
 ```
 
 Writes use *your own* Letterboxd session cookie (never your password), stored locally
-at `~/.config/moviegit/` with `0600` permissions. Because Letterboxd publishes no write
-API, this path drives the site's own logging form and is explicitly unofficial — it
-verifies each response and fails loudly rather than faking success. Once a film is
-logged, it flows back into the web dashboard on the next sync: **Letterboxd is the
-shared remote, the terminal and browser are two working copies.**
+at `~/.config/moviegit/` with `0600` permissions. Letterboxd publishes no write API, so
+this path drives the site's own logging form. It is explicitly unofficial, and it
+verifies each response and fails loudly rather than faking success. A logged film
+flows back into the dashboard on the next sync: **Letterboxd is the shared remote;
+the terminal and browser are two working copies.**
 
-See [`cli/README.md`](cli/README.md) for the full command reference, the auth flow,
-and known limits.
+See [`cli/README.md`](cli/README.md) for the command reference, auth flow, and known limits.
 
 ---
 
 ## How Sync Works
 
-This is the part most Letterboxd tools get wrong, so it's worth being precise.
+Most Letterboxd tools get this part wrong, so precision matters.
 
-**Letterboxd's RSS feed only publishes _diary_ entries** — films you log with an explicit watched-date. Many people (including this project's account) instead log films by simply **rating them and marking them watched**, which never produces a diary entry and therefore **never appears in RSS**. Any tool that relies on RSS silently misses those films forever.
+**Letterboxd's RSS feed only publishes _diary_ entries** — films logged with an explicit watched-date. Many people (including this project's account) simply **rate a film and mark it watched**, which never creates a diary entry and **never appears in RSS**. Any RSS-based tool silently misses those films.
 
 MovieGit instead scrapes the **profile films grid** at `letterboxd.com/{user}/films/`. That page lists *every* watched film with its star rating (`rated-N`, where N/2 = stars), newest first, and updates the instant a film is rated and marked watched. MovieGit fetches it through a CORS-proxy chain (`allorigins.win/raw`, falling back to `cors.eu.org`), parses the grid, and merges new films into your history.
 
-Because the films grid carries no per-film date, newly discovered films are dated to the day they're first seen ("commit today" semantics), while films already in your history keep their real dates from the seed import — so re-polling upgrades ratings in place without ever duplicating a row.
+The grid carries no per-film date, so newly discovered films are dated to the day they're first seen ("commit today" semantics). Films already in your history keep their real dates from the seed import, so re-polling upgrades ratings in place without duplicating a row.
 
 **Data sources at a glance:**
 
@@ -279,9 +277,9 @@ MGSH   — the mg terminal: drawer UI + 28-command registry
 
 **Design principles**
 - **Zero build, zero server.** Deployable to any static host; runs from `file://`.
-- **Resilient enrichment.** TMDB fetches run in batches of 4 with pacing to respect rate limits; films TMDB can't find are negative-cached for 24h; concurrent poll additions are never clobbered by an in-flight enrichment pass.
+- **Resilient enrichment.** TMDB fetches run in paced batches of 4; films TMDB can't find are negative-cached for 24h; concurrent poll additions are never clobbered by an in-flight enrichment pass.
 - **Obfuscated API key.** The TMDB key is split and base64-encoded, reassembled at runtime — never stored in plaintext.
-- **Faithful GitHub aesthetic.** Monospace type, dark-first palette (`#0F172A` canvas, `#22C55E` accent), underline navigation, hover tooltips, visible focus rings, and a respected `prefers-reduced-motion`.
+- **Faithful GitHub aesthetic.** Monospace type, dark-first palette (`#0F172A` canvas, `#22C55E` accent), underline navigation, hover tooltips, visible focus rings, and `prefers-reduced-motion` support.
 
 ---
 
@@ -304,7 +302,7 @@ MGSH   — the mg terminal: drawer UI + 28-command registry
 3. **Edit `index.html`:**
    - In the `CFG` module, set `USERNAME` to your Letterboxd handle.
    - Replace the two base64 key halves with your own TMDB key (split at 16 chars, base64-encode each half).
-4. **Seed your history (optional but recommended):** export your data from Letterboxd (Settings → Data → Export) and drop `watched.csv` + `ratings.csv` into the seed, or let live sync build it up from scratch.
+4. **Seed your history (optional, recommended):** export your data from Letterboxd (Settings → Data → Export) and drop `watched.csv` + `ratings.csv` into the seed, or let live sync build it from scratch.
 5. **Deploy** to GitHub Pages, Netlify, Vercel, or just open the file locally.
 
 ---
@@ -321,13 +319,13 @@ MGSH   — the mg terminal: drawer UI + 28-command registry
 ## FAQ
 
 **Why don't my films show up if I only rate them?**
-They do — that's the whole point of the films-grid sync. Tools built on RSS miss rated-but-not-diaried films; MovieGit doesn't. See [How Sync Works](#how-sync-works).
+They do — that's the point of the films-grid sync. RSS-based tools miss rated-but-not-diaried films; MovieGit doesn't. See [How Sync Works](#how-sync-works).
 
 **Can I run `mg` from my real terminal instead of the in-app one?**
-Not yet — `mg` currently lives in the browser. A thin CLI wrapper is a natural next step: a small Node/Python script that reads the same Letterboxd films grid for read commands (`log`, `status`, `diff`), and — for `commit` — drives Letterboxd's authenticated web session to actually log the film, which would then flow back into the dashboard on the next sync. Because Letterboxd has no public write API, `commit`-to-Letterboxd requires either browser automation against your logged-in session or the unofficial mobile API, so it ships as a deliberate, opt-in piece rather than something baked into the static page.
+Yes — see [The mg CLI](#the-mg-cli-your-real-terminal). Reads need no authentication; `mg commit` writes to Letterboxd through your own session cookie. Because Letterboxd has no public write API, that path is unofficial and opt-in, and the static dashboard never touches it.
 
 **Where is my data stored?**
-Entirely in your browser's `localStorage`. Nothing is sent anywhere except read-only requests to Letterboxd (via CORS proxy) and TMDB (for enrichment).
+Entirely in your browser's `localStorage`. The only outbound traffic is read-only requests to Letterboxd (via CORS proxy) and TMDB (for enrichment).
 
 **Does it work offline?**
 Once loaded and cached, yes — the dashboard renders from `localStorage`. Sync and enrichment resume when you're back online.
