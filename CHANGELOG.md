@@ -8,7 +8,7 @@ For the reasoning behind the larger changes — not just what changed but why �
 
 ## Unreleased (engineering hardening + PM-portfolio pass, on `main`)
 
-**2026-07-27 → 2026-08-02**
+**2026-07-27 → 2026-10-14**
 
 A six-commit refactor pass, each independently reviewed and verified live before merging, addressing duplication between the browser dashboard and the CLI that had already caused one real bug (see below) — followed by a documentation and product-facing pass.
 
