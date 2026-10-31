@@ -5,7 +5,11 @@
   "bin": { "mg": "./bin/mg.js" },
   "type": "module",
   "engines": { "node": ">=18" },
-  "files": ["bin", "src", "README.md"],
+  "files": ["bin", "src", "scripts", "README.md"],
+  "scripts": {
+    "check": "node scripts/check-syntax.js",
+    "prepublishOnly": "npm run check"
+  },
   "keywords": ["letterboxd", "cli", "film", "movies", "git", "moviegit"],
   "license": "MIT",
   "author": "Jeffrey Zhang",

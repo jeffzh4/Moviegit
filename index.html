@@ -2865,7 +2865,7 @@ const LB = (() => {
     if (!html) {
       console.warn('[LB] films grid unreachable — all CORS proxies failed or are rate-limited. ' +
                    'Stored history is unaffected; the next poll will retry.');
-      return [];
+      return null;
     }
 
     const rows = parseFilms(html);
@@ -5061,7 +5061,7 @@ const MG = (() => {
   async function pollRSS() {
     const current = STORE.getHistory();
     const entries = await LB.poll(current);
-    if (!entries.length) { STORE.setLastPoll(); updateSyncStamp(); recordReflog(0, 0); return; }
+    if (entries === null) { updateSyncStamp(); return false; }
 
     // A poll can finish after an import or local edit; merge into the latest state.
     const latest  = STORE.getHistory();
@@ -5077,13 +5077,14 @@ const MG = (() => {
     }
     recordReflog(entries.length, added);
     updateSyncStamp();
+    return true;
   }
 
   function updateSyncStamp() {
     const el = document.getElementById('last-synced');
     if (!el) return;
     const last = STORE.getLastPoll();
-    if (!last) { el.textContent = 'synced just now'; return; }
+    if (!last) { el.textContent = 'not synced yet'; return; }
     const mins = Math.round((Date.now() - new Date(last)) / 60000);
     el.textContent = mins < 1 ? 'synced just now' : `synced ${mins}m ago`;
   }
@@ -5242,7 +5243,8 @@ const MGSH = (() => {
     pull: { use: 'pull', desc: 'sync from Letterboxd (fetch + merge)', async fn() {
       dim('polling origin (letterboxd.com)…');
       const before = hist().length;
-      await MG.pollRSS();
+      const synced = await MG.pollRSS();
+      if (!synced) return err('sync failed — origin unreachable; stored history is unchanged');
       const after = hist().length;
       after > before ? ok(`updated: +${after - before} film${after - before > 1 ? 's' : ''}`) : print('Already up to date.');
     }},
@@ -5250,7 +5252,7 @@ const MGSH = (() => {
     fetch: { use: 'fetch', desc: 'check origin for new films (no merge)', async fn() {
       dim('fetching origin…');
       const rows = await LB.poll(hist());
-      if (!rows.length) return err('origin unreachable (all proxies failed)');
+      if (rows === null) return err('origin unreachable (all proxies failed)');
       const known = new Set(hist().map(e => `${e.title.toLowerCase()}|${e.year}`));
       const fresh = rows.filter(r => !known.has(`${r.title.toLowerCase()}|${r.year}`));
       if (!fresh.length) return print('Already up to date.');
