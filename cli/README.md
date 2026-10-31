@@ -1,6 +1,6 @@
 # mg — git for your movies
 
-A command line over your Letterboxd watch history. The terminal counterpart to the
+A command line over your Letterboxd watch history, and the terminal counterpart to the
 [MovieGit dashboard](https://jeffzh4.github.io/Moviegit).
 
 ```
@@ -12,8 +12,8 @@ ec73e5f  Minions & Monsters     (2026)  ★★★★   — Pierre Coffin
 bc82d71  GOAT                   (2026)  ★★★    — Tyree Dillihay
 ```
 
-Zero dependencies. Node 18+. Commit hashes match the web dashboard exactly — the
-same FNV-1a of title + year — so a hash you see here is the hash you see there.
+Zero dependencies. Node 18+. Commit hashes match the web dashboard (the same
+FNV-1a of title + year).
 
 ## Install
 
@@ -21,7 +21,7 @@ same FNV-1a of title + year — so a hash you see here is the hash you see there
 npm install -g moviegit
 ```
 
-Or run it straight from a clone:
+Or from a clone:
 
 ```bash
 cd cli && npm link
@@ -37,9 +37,9 @@ mg blame prestige                            # why you rated it that way
 mg merge someuser                            # taste compatibility
 ```
 
-Reads are **public and unauthenticated** — no login, no cookie, nothing stored
+Reads are **public and unauthenticated**: no login, no cookie, nothing stored
 server-side. A free [TMDB key](https://www.themoviedb.org/settings/api) is optional
-but unlocks directors, genres, runtimes, and consensus ratings.
+but adds directors, genres, runtimes, and consensus ratings.
 
 ## Commands
 
@@ -92,14 +92,14 @@ mg commit "Hoppers" --slug hoppers --dry-run     # preview, writes nothing
 Flags: `--rating <0.5-5>` · `--date YYYY-MM-DD` (defaults to today) · `--rewatch`
 · `--liked` · `--year <yyyy>` and `--slug <slug>` to disambiguate · `--dry-run`.
 
-Once written, the film appears in the web dashboard on its next sync — Letterboxd
-is the shared remote, so terminal and browser stay in step through it.
+The film appears in the web dashboard on its next sync; Letterboxd is the shared
+remote.
 
 ### Authentication, and why it works this way
 
-Letterboxd has **no public write API**. Logging a film therefore means acting as
-your own signed-in browser session. This tool deliberately **never handles your
-password**. Instead you paste a session cookie you copied yourself:
+Letterboxd has **no public write API**, so logging a film means acting as your
+own signed-in browser session. This tool **never handles your password**; you
+paste a session cookie you copied yourself:
 
 ```
 1. Sign in to letterboxd.com in your browser
@@ -110,25 +110,25 @@ password**. Instead you paste a session cookie you copied yourself:
 
 It is stored at `~/.config/moviegit/credentials.json` with `0600` permissions and
 is sent only to letterboxd.com, only on requests you trigger with `mg commit`.
-Remove it any time with `mg auth --logout`, or by signing out on letterboxd.com.
+Remove it with `mg auth --logout`, or by signing out on letterboxd.com.
 
 **This write path is unofficial.** It drives the same form the Letterboxd website
-posts when you use its own "log this film" dialog, and it can break whenever they
-change that form. `mg commit` verifies the response and reports failure loudly
-rather than pretending a write succeeded. Read commands are unaffected.
+posts from its own "log this film" dialog, and it can break if they change that
+form. `mg commit` verifies the response and reports failure rather than
+pretending a write succeeded. Read commands are unaffected.
 
 ## Known limits
 
 - **72-film ceiling on reads.** Letterboxd serves page 1 of the films grid to any
   client but returns `403` for deeper pages to non-browser requests, so the CLI
-  reliably sees your 72 most recently-watched films. Commands say so explicitly
-  rather than under-reporting silently. The web dashboard fills in the full
-  back-catalogue from a CSV export baked into its seed.
+  sees your 72 most recently-watched films. Commands say so rather than
+  under-reporting silently. The web dashboard holds the full
+  back-catalogue from a CSV export in its seed.
 - **No watch dates.** The films grid carries ratings but not per-film dates, so
   `streak` and date-based `diff` need the dashboard's seeded history.
-- **`search` is blocked**, so `mg commit` resolves films by deriving the slug from
-  the title and verifying it against the real film page. Use `--year` or `--slug`
-  when a title is ambiguous (e.g. *Sinners* 2002 vs 2025).
+- **`search` is blocked**, so `mg commit` derives the slug from the title and
+  verifies it against the real film page. Use `--year` or `--slug` when a title
+  is ambiguous (e.g. *Sinners* 2002 vs 2025).
 
 ## Config
 
@@ -139,7 +139,7 @@ rather than pretending a write succeeded. Read commands are unaffected.
   cache.json        last synced film list            (0600)
 ```
 
-Override the location with `MOVIEGIT_HOME`. Environment overrides: `MOVIEGIT_USER`,
+Override the location with `MOVIEGIT_HOME`. Other variables: `MOVIEGIT_USER`,
 `TMDB_API_KEY`, `NO_COLOR`.
 
 ## License
