@@ -2417,6 +2417,16 @@ const CFG = (() => {
    STORE  — localStorage CRUD
    ============================================================ */
 const STORE = (() => {
+  const urlUser = new URLSearchParams(window.location.search).get('user')?.toLowerCase().trim();
+  const guestUser = urlUser && urlUser !== CFG.USERNAME.toLowerCase() ? urlUser : null;
+  const accountKeys = new Set([
+    'mg_history', 'mg_last_poll', 'mg_csv_loaded', 'mg_seed_version',
+    'mg_branches', 'mg_head', 'mg_stash', 'mg_reflog',
+  ]);
+  // Guest history and shell state must never read or overwrite the owner's keys.
+  // Theme and film metadata are independent of the account and remain shared.
+  const storageKey = k => guestUser && accountKeys.has(k)
+    ? `mg_guest_${encodeURIComponent(guestUser)}_${k}` : k;
   const K = {
     history:  'mg_history',
     tmdb:     'mg_tmdb_cache',
@@ -2426,8 +2436,8 @@ const STORE = (() => {
     seedVer:  'mg_seed_version',
   };
 
-  const read  = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-  const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  const read  = k => { try { return JSON.parse(localStorage.getItem(storageKey(k))); } catch { return null; } };
+  const write = (k, v) => { try { localStorage.setItem(storageKey(k), JSON.stringify(v)); } catch {} };
 
   return {
     getHistory:    ()    => read(K.history)  || [],
@@ -2446,9 +2456,9 @@ const STORE = (() => {
     // to a different custom username so the maintainer's stale seeded films
     // (from a prior default/anonymous session) don't carry over.
     clearHistorySeed: () => {
-      localStorage.removeItem(K.history);
-      localStorage.removeItem(K.csvDone);
-      localStorage.removeItem(K.seedVer);
+      localStorage.removeItem(storageKey(K.history));
+      localStorage.removeItem(storageKey(K.csvDone));
+      localStorage.removeItem(storageKey(K.seedVer));
     },
     // Generic JSON read/write for arbitrary keys — MGSH's mg_branches/
     // mg_head/mg_stash/mg_reflog/mg_tmdb_cache used to reimplement this
@@ -5053,15 +5063,17 @@ const MG = (() => {
     const entries = await LB.poll(current);
     if (!entries.length) { STORE.setLastPoll(); updateSyncStamp(); recordReflog(0, 0); return; }
 
-    const merged  = DATA.merge(current, entries);
-    const added   = merged.length - current.length;
-    if (added > 0) {
+    // A poll can finish after an import or local edit; merge into the latest state.
+    const latest  = STORE.getHistory();
+    const merged  = DATA.merge(latest, entries);
+    const added   = merged.length - latest.length;
+    if (JSON.stringify(merged) !== JSON.stringify(latest)) {
       STORE.setHistory(merged);
-      STORE.setLastPoll();
       renderActiveTab(merged);
+    }
+    STORE.setLastPoll();
+    if (added > 0) {
       UI.toast(`${added} new entr${added > 1 ? 'ies' : 'y'} from Letterboxd`, 'success');
-    } else {
-      STORE.setLastPoll();
     }
     recordReflog(entries.length, added);
     updateSyncStamp();

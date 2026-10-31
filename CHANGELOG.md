@@ -8,9 +8,12 @@ For the reasoning behind the larger changes — not just what changed but why �
 
 ## Unreleased (engineering hardening + PM-portfolio pass, on `main`)
 
-**2026-07-27 → 2026-10-14**
+**2026-07-27 → 2026-10-30**
 
 A six-commit refactor pass, each reviewed and verified live before merging, addressing duplication between the browser dashboard and the CLI that had already caused one real bug (see below) — followed by a documentation and product-facing pass.
+
+- **Isolated guest history and terminal state by Letterboxd account.** Opening `?user=<handle>` now uses separate storage for history, sync timestamps, import state, branches, watchlist, and reflog, preserving the default account's data.
+- **Fixed rating-only sync updates.** Existing films' changed ratings are now saved and rendered even when a poll finds no new films. Poll results merge into the latest stored history so local additions made during the request are retained.
 
 - **Extracted `cli/src/domain.js`** as the single canonical implementation of logic that had been written twice: films-grid parsing, TMDB field extraction, rating math, film lookup, and the `blame`/`merge`/`wrapped` formulas. The CLI imports it directly; the dashboard inlines it via a new dev-time sync script (`scripts/sync-domain.py`), with a CI-enforced drift check (`scripts/check-domain-sync.py`) so the two copies can't silently diverge again.
 - **Fixed the bug the refactor was named for**: `cherry-pick`'s film-matching had regressed to a narrower 2-tier match than `blame`'s canonical 3-tier match, so an ambiguous query could resolve to a different film depending on the command.
