@@ -685,16 +685,6 @@
 
     input[type="file"] { display: none; }
 
-    /* ── Tab stub ── */
-    .tab-stub {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      min-height: 380px; gap: 12px; text-align: center; color: var(--text-tertiary);
-    }
-
-    .tab-stub > i  { font-size: 38px; }
-    .tab-stub h3   { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
-    .tab-stub p    { font-size: 12px; max-width: 280px; line-height: 1.7; }
-
     /* ── Toast ── */
     .toast {
       position: fixed; bottom: 22px; right: 22px;
@@ -1187,14 +1177,6 @@
       padding: 12px 14px;
       margin-bottom: 14px;
     }
-    .htc-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
-    .htc-items { display: flex; flex-direction: column; gap: 6px; }
-    .htc-item {
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 12px; gap: 8px;
-    }
-    .htc-film { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .htc-delta { font-weight: 600; color: var(--trend-dn); white-space: nowrap; }
 
     /* ── Genre sparkline (sidebar) ── */
     .genre-spark { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: var(--text-secondary); }
@@ -1203,7 +1185,6 @@
     .genre-spark-bar { height: 100%; border-radius: 1px; background: var(--accent-green); opacity: 0.6; min-width: 2px; }
 
     /* ── Tier shelf ── */
-    .tier-shelf { display: flex; flex-direction: column; gap: 14px; }
     .tier-row {
       display: flex; align-items: flex-start; gap: 14px;
     }
@@ -1248,16 +1229,6 @@
       border-color: var(--accent-blue);
     }
     .cvt-btn i { font-size: 13px; }
-
-    /* ── Loading skeleton ── */
-    @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-    .skeleton {
-      background: var(--bg-tertiary);
-      border-radius: var(--r-md);
-      animation: skeleton-pulse 1.5s ease-in-out infinite;
-    }
-    .skeleton-bar { height: 12px; margin-bottom: 8px; }
-    .skeleton-text { height: 16px; margin-bottom: 12px; }
 
     /* ── Empty state ── */
     .empty-state {
@@ -1577,13 +1548,6 @@
       border-bottom: 0.5px solid var(--border);
       font-size: 11px; color: var(--text-tertiary);
     }
-    .drift-year-btn {
-      padding: 3px 8px; border-radius: var(--r-sm);
-      background: var(--bg-tertiary); border: 1px solid var(--border);
-      color: var(--text-secondary); font-family: var(--font-mono);
-      font-size: 11px; cursor: pointer; transition: all .15s;
-    }
-    .drift-year-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
     .drift-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -1681,9 +1645,6 @@
       .contrib-wrap { overflow-x: auto; }
       .contrib-grid { min-width: 520px; }
       .contrib-month-row { min-width: 546px; } /* 26px label + 520px grid */
-
-      /* Diary: hide director col */
-      .dr-director { display: none; }
 
       /* Canon: fewer columns */
       .canon-grid { grid-template-columns: repeat(3, 1fr) !important; }
