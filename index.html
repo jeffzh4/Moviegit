@@ -1753,10 +1753,10 @@
 
 <div class="mg">
 
-  <!-- Guest / read-only banner -->
+  <!-- Guest profile banner -->
   <div id="guest-banner" class="hidden">
     <svg class="ic" style="font-size:13px"><use href="#i-eye"/></svg>
-    <span>Viewing <strong id="guest-handle">@user</strong>'s dashboard — read-only · data from Letterboxd RSS</span>
+    <span>Viewing <strong id="guest-handle">@user</strong>'s dashboard · public Letterboxd history</span>
     <a href="?" style="margin-left:auto;color:var(--accent-blue);text-decoration:none;font-size:11px">← back to my dashboard</a>
   </div>
 
@@ -2002,7 +2002,7 @@
           <div class="import-zone" id="import-zone">
             <svg class="ic"><use href="#i-file-spreadsheet"/></svg>
             <h3>Seed your watch history</h3>
-            <p>Drop your Letterboxd diary CSV export here, or click to browse. Your full history powers the stats — RSS keeps it current after that.</p>
+            <p>Drop your Letterboxd diary CSV export here, or click to browse. Your imported dates power the stats. Sync adds recent films from your Letterboxd profile.</p>
             <div class="btn-row">
               <button class="btn-primary" onclick="document.getElementById('csv-input').click()">
                 <svg class="ic"><use href="#i-upload"/></svg>Choose CSV
@@ -2325,7 +2325,7 @@
       <p>Your data comes from three sources:</p>
       <ul style="margin: 0 0 8px 16px; font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
         <li><strong>Letterboxd CSV</strong> — your full watch history (imported once)</li>
-        <li><strong>Letterboxd RSS</strong> — live polling every 5 minutes for new entries</li>
+        <li><strong>Letterboxd films grid</strong> — checks for new films and rating changes every 5 minutes</li>
         <li><strong>TMDB API</strong> — metadata enrichment (posters, genres, directors, ratings)</li>
       </ul>
       <p>Everything is processed client-side and stored locally — no backend, no tracking, no servers.</p>
@@ -2338,7 +2338,7 @@
         <span class="modal-tech-item">Vanilla JS</span>
         <span class="modal-tech-item">CSS3</span>
         <span class="modal-tech-item">localStorage</span>
-        <span class="modal-tech-item">Letterboxd RSS</span>
+        <span class="modal-tech-item">Letterboxd films grid</span>
         <span class="modal-tech-item">TMDB API v3</span>
         <span class="modal-tech-item">Tabler Icons</span>
       </div>
@@ -2757,7 +2757,7 @@ const DATA = (() => {
   }
 
   // Merge two arrays deduped by id+watchedDate, with title+year+date fallback
-  // (RSS slugs can differ from seed-data slugs: 'inception' vs 'inception-2010')
+  // (Letterboxd slugs can differ from seed-data slugs: 'inception' vs 'inception-2010')
   function merge(existing, incoming) {
     const byId    = new Set(existing.map(e => `${e.id}|${e.watchedDate}`));
     const byTitle = new Set(existing.map(e => `${(e.title||'').toLowerCase()}|${e.year}|${e.watchedDate}`));
@@ -2766,7 +2766,7 @@ const DATA = (() => {
       if (byTitle.has(`${(e.title||'').toLowerCase()}|${e.year}|${e.watchedDate}`)) return false;
       return true;
     });
-    // For entries that already exist (by title+date), upgrade with RSS data (rating, rewatch flag)
+    // Update matching entries without replacing their local metadata.
     const upgraded = existing.map(ex => {
       const match = incoming.find(inc =>
         (inc.title||'').toLowerCase() === (ex.title||'').toLowerCase() &&
@@ -2813,7 +2813,7 @@ const DATA = (() => {
 const LB = (() => {
 
   // Fetch a URL's raw HTML through whichever CORS proxy is up.
-  // allorigins/raw is primary; cors.eu.org is the fallback (both verified on Letterboxd).
+  // Each proxy gets eight seconds to return a recognizable films grid.
   async function fetchHTML(url) {
     const bust   = 'cb=' + Math.floor(Date.now() / 60000); // per-minute cache-bust
     const target = url + (url.includes('?') ? '&' : '?') + bust;
@@ -2859,6 +2859,7 @@ const LB = (() => {
   // `existing` (current history) lets us reuse a film's real watchedDate when it's
   // already known — so re-polling upgrades ratings in place instead of duplicating
   // the row under today's date. Genuinely new films get today's date ("commit today").
+  // Return null if every proxy fails, or an array of parsed films on success.
   async function poll(existing = []) {
     const url  = CFG._filmsOverride || CFG.FILMS_URL;
     const html = await fetchHTML(url);
@@ -2994,7 +2995,7 @@ const TMDB = (() => {
       setTimeout(() => { bar.style.opacity = '0'; setTimeout(() => { bar.style.width = '0%'; bar.style.opacity = '1'; }, 500); }, 400);
     }
 
-    // Re-read latest history before writing: a concurrent RSS poll may have appended
+    // Re-read latest history before writing: a concurrent sync may have appended
     // new films while enrichment was running. Overlay enriched entries onto the current
     // stored set instead of clobbering it with our stale snapshot.
     const enrichedByKey = new Map(entries.map(e => [`${e.id}|${e.watchedDate}`, e]));
@@ -4959,7 +4960,7 @@ const MG = (() => {
     const isGuest  = urlUser && urlUser !== CFG.USERNAME.toLowerCase();
 
     if (isGuest) {
-      // Override username for guest view — use namespaced storage keys
+      // STORE already uses guest-scoped keys. Point the profile and sync at the guest.
       CFG._guestUser = urlUser;
       const banner = document.getElementById('guest-banner');
       const handle = document.getElementById('guest-handle');
@@ -4979,7 +4980,7 @@ const MG = (() => {
 
     // Seed localStorage from baked data (skip for guest views).
     // SEED_VERSION lets a refreshed seed merge into existing users' data
-    // without wiping their TMDB enrichment cache or RSS-added entries.
+    // without wiping their TMDB enrichment cache or films added by sync.
     let history = STORE.getHistory();
     // Only seed with the maintainer's SEED_DATA on the maintainer's own default
     // page — never for a ?user= guest view, and never for a visitor who has set
@@ -5031,7 +5032,7 @@ const MG = (() => {
     // Kick off TMDB enrichment in background
     setTimeout(() => TMDB.enrichBatch(history, h => renderActiveTab(h)), 800);
 
-    // First RSS poll
+    // Fetch the films grid before scheduling subsequent polls.
     await pollRSS();
 
     // Schedule recurring poll
@@ -5049,7 +5050,7 @@ const MG = (() => {
     });
   }
 
-  // Append a sync event to the reflog (capped at 40) — powers `mg reflog`.
+  // Record successful polls for `mg reflog`, keeping at most 40 entries.
   function recordReflog(scanned, added) {
     try {
       const log = STORE.readJSON('mg_reflog') || [];
@@ -5110,7 +5111,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /* ============================================================
    MGSH  — the mg terminal. GitHub for movies, literally:
-   a command line over your watch history. 18 git-style commands.
+   a command line over your watch history.
    ============================================================ */
 const MGSH = (() => {
   const HOUR24 = 24 * 3600 * 1000;
@@ -5431,7 +5432,7 @@ const MGSH = (() => {
     remote: { use: 'remote [-v]', desc: 'linked Letterboxd origin + sync health', fn() {
       print(`origin  <span class="sh-accent">https://letterboxd.com/${esc(CFG.USERNAME)}/</span> (fetch)`);
       print(`origin  <span class="sh-dim">no push — Letterboxd has no write API</span>`);
-      dim(`source: /films/ grid via allorigins.win → cors.eu.org fallback`);
+      dim(`source: /films/ grid via AllOrigins, cors.eu.org, or CodeTabs`);
       const last = STORE.getLastPoll();
       dim(`last sync: ${MG_DOMAIN.formatAgo(last)} · auto-poll every ${CFG.POLL_MS / 60000}m`);
     }},

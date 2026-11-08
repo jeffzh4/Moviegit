@@ -55,9 +55,7 @@ function truncNote(truncated, films) {
 const rated = (films) => films.filter((f) => f.rating != null);
 const avg = avgRating;
 
-// findFilm here matches the pre-existing local contract (returns the film
-// directly, not {film, matches}) — same 3-tier match as the browser
-// dashboard's MGSH commands, via domain/letterboxd.mjs.
+// The CLI uses the first match from the shared exact, prefix, and substring search.
 function findFilm(films, q) {
   return findFilmDomain(films, q).film;
 }
@@ -211,8 +209,6 @@ export const commands = {
 
   async wrapped(args, flags) {
     const { user, films } = await load(flags, { needEnrich: true });
-    // Same summary shape as the browser dashboard's mg wrapped — see
-    // domain/letterboxd.mjs summarize().
     const s = summarize(films);
     log(heading(`━━ MovieGit Wrapped · @${user} ━━`));
     log(`${c.bold(s.count)} films${s.totalMin ? ` · ${s.hours}h · ${(s.totalMin / 1440).toFixed(1)} days of cinema` : ''}`);
@@ -256,8 +252,6 @@ export const commands = {
     });
     const overlap = theirs.filter((t) => mine.has(`${t.title.toLowerCase()}|${t.year}`)).length;
     if (!shared.length) return log(c.gray(`no shared rated films with @${other}`));
-    // Same compatibility formula as the browser dashboard's mg merge — see
-    // domain/letterboxd.mjs computeCompat().
     const { compat, meanDiff } = computeCompat(shared);
     log(heading(`merge @${user} ← @${other}`));
     log(`${overlap} films both watched · ${shared.length} both rated`);

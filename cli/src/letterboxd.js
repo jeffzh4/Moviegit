@@ -38,7 +38,7 @@ export const parseFilms = parseFilmsDomain;
  * under-reporting. The web dashboard has the same ceiling; it fills in the full
  * back-catalogue from a CSV export baked into its seed.
  *
- * Returns an array with a non-enumerable `truncated` marker.
+ * Returns an array with a non-enumerable `truncated` flag set when a deeper page fails.
  */
 export async function fetchFilms(username, { maxPages = 20 } = {}) {
   const all = [];
@@ -74,7 +74,7 @@ export async function fetchFilms(username, { maxPages = 20 } = {}) {
   return all;
 }
 
-/** Pull the display name + avatar off a profile page (best effort). */
+/** Read the display name from a public profile. Return an empty object on failure. */
 export async function fetchProfile(username) {
   try {
     const res = await get(`https://letterboxd.com/${username}/`);

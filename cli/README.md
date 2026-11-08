@@ -17,11 +17,7 @@ FNV-1a of title + year).
 
 ## Install
 
-```bash
-npm install -g moviegit
-```
-
-Or from a clone:
+The package is unpublished. From a clone, link the CLI locally with Node 18 or newer.
 
 ```bash
 cd cli && npm link
@@ -67,7 +63,7 @@ but adds directors, genres, runtimes, and consensus ratings.
 | Command | Description |
 |---|---|
 | `mg diff <y1> <y2>` | Taste diff between two years |
-| `mg wrapped` | Year-in-review card |
+| `mg wrapped` | Summary of the available films |
 | `mg merge <user>` | Taste compatibility, with "merge conflicts" |
 
 ### Sync
@@ -92,8 +88,7 @@ mg commit "Hoppers" --slug hoppers --dry-run     # preview, writes nothing
 Flags: `--rating <0.5-5>` · `--date YYYY-MM-DD` (defaults to today) · `--rewatch`
 · `--liked` · `--year <yyyy>` and `--slug <slug>` to disambiguate · `--dry-run`.
 
-The film appears in the web dashboard on its next sync; Letterboxd is the shared
-remote.
+After a successful write, the dashboard can pick up the film from the Letterboxd grid. The authenticated write path still needs end-to-end verification.
 
 ### Authentication, and why it works this way
 
@@ -109,8 +104,8 @@ paste a session cookie you copied yourself:
 ```
 
 It is stored at `~/.config/moviegit/credentials.json` with `0600` permissions and
-is sent only to letterboxd.com, only on requests you trigger with `mg commit`.
-Remove it with `mg auth --logout`, or by signing out on letterboxd.com.
+is sent to Letterboxd for session verification and diary writes.
+Run `mg auth --logout` to remove the stored cookie.
 
 **This write path is unofficial.** It drives the same form the Letterboxd website
 posts from its own "log this film" dialog, and it can break if they change that
@@ -141,6 +136,12 @@ pretending a write succeeded. Read commands are unaffected.
 
 Override the location with `MOVIEGIT_HOME`. Other variables: `MOVIEGIT_USER`,
 `TMDB_API_KEY`, `NO_COLOR`.
+
+## Development checks
+
+From `cli/`, run `npm run check` to check JavaScript syntax and
+`npm pack --dry-run` to inspect the package contents. The publish hook runs
+the syntax check automatically.
 
 ## License
 

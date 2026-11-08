@@ -27,7 +27,7 @@ MovieGit is that vocabulary, applied. It is not a Letterboxd competitor or a soc
 1. **Zero-friction viewing.** No login, no backend, no account creation to look at the primary instance. The first byte a visitor gets is the page itself.
 2. **Faithful metaphor, not just faithful skin.** "Watching a film is a commit" has to hold up under interrogation: a deterministic hash per film, a real streak calculation, a real diff between two years, not just green squares that look like GitHub's.
 3. **Sync that actually works.** Early versions treated Letterboxd's RSS feed as the source of truth, and it silently failed for any account that logs films by rating rather than diarying (see [Architecture §4](ARCHITECTURE.md#4-the-rss-dead-end-and-what-replaced-it) for the full post-mortem). Sync had to be fixed at the data-source level, not patched at the parser level.
-4. **A second interface that isn't a toy.** The in-browser `mg` terminal and the installable `mg` CLI needed to be the same tool in two forms (same commands, hashes, and math), not a browser gimmick with a CLI afterthought.
+4. **A standalone terminal interface.** The browser terminal and Node CLI share the Git vocabulary, commit hashes, and core calculations. Their available commands and history differ because they use separate storage.
 5. **Portfolio-grade engineering hygiene**, visible in the repo itself: CI, a documented architecture, an honest known-issues list, a real changelog. The product is partly the repo.
 
 ## 4. Non-goals

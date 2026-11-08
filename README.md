@@ -206,10 +206,11 @@ working tree clean
 
 ## The mg CLI (your real terminal)
 
-The same commands, outside the browser. A zero-dependency Node package lives in [`cli/`](cli/):
+The standalone CLI shares the dashboard’s film lookup, hashes, and rating calculations. The package is unpublished. From a clone, install the local CLI with Node 18 or newer.
 
 ```bash
-npm install -g moviegit
+cd cli
+npm link
 
 mg login islaby --tmdb-key <key>
 mg status
@@ -231,9 +232,7 @@ mg commit "Weapons" --rating 4 --liked --date 2026-06-02
 Writes use *your own* Letterboxd session cookie (never your password), stored locally
 at `~/.config/moviegit/` with `0600` permissions. Letterboxd publishes no write API, so
 this path drives the site's own logging form. It is explicitly unofficial, and it
-verifies each response and fails loudly rather than faking success. A logged film
-flows back into the dashboard on the next sync: **Letterboxd is the shared remote;
-the terminal and browser are two working copies.**
+verifies each response and fails loudly rather than faking success. The write path has yet to be verified against a real authenticated account. After a successful write, the dashboard can pick up the film from the Letterboxd grid.
 
 See [`cli/README.md`](cli/README.md) for the command reference, auth flow, and known limits.
 
@@ -245,9 +244,9 @@ Most Letterboxd tools get this part wrong, so precision matters.
 
 **Letterboxd's RSS feed only publishes _diary_ entries** — films logged with an explicit watched-date. Many people (including this project's account) simply **rate a film and mark it watched**, which never creates a diary entry and **never appears in RSS**. Any RSS-based tool silently misses those films.
 
-MovieGit instead scrapes the **profile films grid** at `letterboxd.com/{user}/films/`. That page lists *every* watched film with its star rating (`rated-N`, where N/2 = stars), newest first, and updates the instant a film is rated and marked watched. MovieGit fetches it through a CORS-proxy chain (`allorigins.win/raw`, falling back to `cors.eu.org`), parses the grid, and merges new films into your history.
+MovieGit instead scrapes the **profile films grid** at `letterboxd.com/{user}/films/`. That page lists *every* watched film with its star rating (`rated-N`, where N/2 = stars), newest first, and updates the instant a film is rated and marked watched. MovieGit fetches it through a CORS-proxy chain (`allorigins.win/raw`, `cors.eu.org`, then `codetabs.com`), parses the grid, and merges new films into your history.
 
-The grid carries no per-film date, so newly discovered films are dated to the day they're first seen ("commit today" semantics). Films already in your history keep their real dates from the seed import, so re-polling upgrades ratings in place without duplicating a row.
+The grid carries no per-film date, so newly discovered films are dated to the day they're first seen ("commit today" semantics). Films already in your history keep their real dates from the seed import, so re-polling updates ratings in place, even when no new films are found. If all proxies fail, the dashboard keeps its saved history and last successful sync time.
 
 **Data sources at a glance:**
 
@@ -309,7 +308,7 @@ MGSH   — the mg terminal: drawer UI + 28-command registry
 
 ## Multi-User & Sharing
 
-- **`?user=<handle>`** opens any public Letterboxd account in read-only guest mode (namespaced storage, guest banner, sync scoped to that user).
+- **`?user=<handle>`** opens a public Letterboxd account in guest mode. History and terminal state are stored separately for each guest. Browser edits stay local.
 - **`?tab=<name>`** deep-links directly to a view.
 - The **share button** uses the Web Share API on mobile, with a clipboard fallback on desktop.
 - From the terminal, `clone <user>` is the shortcut for the same thing.

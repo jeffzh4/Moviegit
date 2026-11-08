@@ -1,17 +1,16 @@
 # MovieGit — Architecture
 
-**Status:** Reflects the codebase as of v1.5 (commit `9c4cd64`)
-**Last updated:** 2026-08-02
+**Last updated:** 2026-11-07
 
 ---
 
 ## 1. The single-file constraint
 
-`index.html` is ~5,500 lines and is the entire dashboard: markup, CSS, and every module of JavaScript, in one file, with zero build step and zero server. This is a constraint carried forward from the project's very first commit, not an unfixed limitation. It buys three things:
+`index.html` contains the entire dashboard: markup, CSS, and every module of JavaScript, in one file, with zero build step and zero server. This is a constraint carried forward from the project's very first commit, not an unfixed limitation. It buys three things:
 
 - **It deploys as a static file to GitHub Pages with no build pipeline to keep working.** There is no webpack config, no `npm run build`, and no lockfile to go stale. The file that's in the repo is the file that's served.
 - **It runs from `file://` with no server at all**, which matters for the self-hosting use case documented in the README (download two files, edit two constants, open in a browser).
-- **Every dependency the dashboard has is CDN-loaded at runtime** (previously the Tabler icon webfont — see [Design Doc §2.3](DESIGN.md#23-iconography) for why that specific dependency was removed) rather than vendored or bundled, keeping the "one file" claim true.
+- **The dashboard ships without a runtime library.** Icons use an inline SVG sprite. Sync and enrichment make network requests to Letterboxd proxies and TMDB.
 
 The cost of this constraint shows up directly in §3: it's why the shared domain-logic module can't be `import`ed into the dashboard as the CLI does it, and why a small dev-time sync script exists instead.
 
@@ -29,20 +28,20 @@ TMDB      — lazy enrichment (search → details → credits), batched, rate-li
 RENDER    — every view renderer (overview, diary, stats, canon) + shared esc()/mgHash delegation
 UI        — tab switching, theme toggle, modal, share, keyboard shortcuts
 MG        — bootstrap, poll loop, seed-merge logic, sync reflog
-MGSH      — the mg terminal: drawer UI + a 29-command registry
+MGSH      — the mg terminal: drawer UI + command dispatch
 ```
 
 The CLI mirrors this at the file level instead of the IIFE level, since it's a real Node package:
 
 ```
 cli/bin/mg.js         — argv parsing, command dispatch, --help text
-cli/src/commands.js   — the 20 command implementations (~350 lines)
-cli/src/domain.js     — canonical shared logic (~220 lines) — see §3
+cli/src/commands.js   — command handlers and cache loading
+cli/src/domain.js     — canonical parsing and calculations (see §3)
 cli/src/letterboxd.js — films-grid fetch + pagination + film-page resolution
 cli/src/tmdb.js       — enrichment, thin wrapper around domain.js's URL builders
 cli/src/auth.js       — the unofficial write path (cookie-based, see §5)
 cli/src/config.js     — ~/.config/moviegit/ read/write
-cli/src/format.js     — terminal color/formatting, re-exports domain.js's mgHash/starGlyphs
+cli/src/format.js     — terminal color/formatting, uses shared star glyphs and re-exports hash and time helpers
 ```
 
 ## 3. The shared domain module, and why it exists
@@ -51,11 +50,11 @@ Through v1.4, the dashboard and the CLI were two independent implementations of 
 
 The risk was not hypothetical; it had already caused a bug. The CLI's film-matching function had three match tiers (exact → starts-with → includes); the dashboard's `cherry-pick` command had quietly regressed to two tiers at some point, so the same ambiguous query could resolve to a different film depending on which surface you asked. Independent copies of "the same logic" drift silently until something depends on the difference.
 
-**The fix:** `cli/src/domain.js` is now the single canonical implementation of every piece of logic both surfaces need — parsing, rating math, film lookup, TMDB field extraction, hashing, streak calculation, display formatting (`formatAgo`, `starGlyphs`), and the blame/merge/wrapped formulas. It has zero dependencies, touches no `fetch`, no DOM, and no `localStorage` — it's pure data in, data out, so both a browser environment and a Node environment can run it unmodified.
+**The fix:** `cli/src/domain.js` is now the canonical implementation of the logic the two surfaces share — parsing, rating math, film lookup, TMDB field extraction, hashing, streak calculation, display formatting (`formatAgo`, `starGlyphs`), and rating divergence, taste compatibility, and summary helpers. It has zero dependencies, touches no `fetch`, no DOM, and no `localStorage` — it's pure data in, data out, so both a browser environment and a Node environment can run it unmodified.
 
 - **The CLI imports it directly** (`import { ... } from './domain.js'`) — trivial, since `cli/` is already a Node ESM package.
-- **The dashboard can't import anything** (§1), so `scripts/sync-domain.py` inlines `cli/src/domain.js`'s source into a marked block in `index.html` (`/* DOMAIN:BEGIN */` … `/* DOMAIN:END */`) at dev time, stripping only the ES-module `export` keywords. The embedded copy is otherwise byte-identical to what the CLI imports.
-- **`scripts/check-domain-sync.py`, wired into CI, fails the build if the two ever disagree** if someone edits `domain.js` and forgets to re-run the sync script. This is the enforcement mechanism; without it, "single source of truth, inlined at dev time" would just be a slower way to reintroduce the same drift the module exists to prevent.
+- **To keep the dashboard self-contained**, `scripts/sync-domain.py` inlines `cli/src/domain.js`'s source into a marked block in `index.html` (`/* DOMAIN:BEGIN */` … `/* DOMAIN:END */`) at dev time, stripping only the ES-module `export` keywords. The script omits the module header and preserves the function bodies.
+- **`scripts/check-domain-sync.py`** compares the embedded block with the generated source in CI. Edit `cli/src/domain.js` and run `python3 scripts/sync-domain.py` to update the dashboard.
 
 This was refactored incrementally, in six separate commits, each independently reviewed and each verified live in both the browser terminal and the installed CLI before merging (`2b76231` through `9c4cd64` in the changelog) — deliberately, so that one large "extract everything" commit wouldn't hide a regression in one command among forty others.
 
@@ -72,7 +71,7 @@ The first three investigations misdiagnosed it. Commits `dc17ff6`, `a6c4e26`, an
 Two consequences of this data source, both handled explicitly rather than papered over:
 
 - **No per-film date.** The films grid has no timestamp field. A newly-discovered film is stamped with the date it was first *seen by the sync*, not the date it was actually watched ("commit-today" semantics) — an approximation disclosed in [Known Issues](KNOWN_ISSUES.md). Films already in history keep their real date from the original CSV-export seed; re-polling only upgrades a rating in place, never duplicates a row.
-- **Browser and CLI need different transports for the same scrape.** The browser has no direct access to Letterboxd (CORS), so it routes through a proxy chain (`allorigins.win/raw` → `cors.eu.org` → `codetabs.com`, tried in order, non-fatal on total failure — stored history just doesn't update that cycle). The CLI runs server-side and hits Letterboxd directly with no proxy. This is the one piece of logic the domain-module refactor (§3) deliberately did *not* try to unify — the transport difference is real, not incidental duplication.
+- **Browser and CLI need different transports for the same scrape.** The browser has no direct access to Letterboxd (CORS), so it routes through a proxy chain (`allorigins.win/raw` → `cors.eu.org` → `codetabs.com`, tried in order with an eight-second timeout per attempt). A failed poll preserves the last successful timestamp. A successful poll can update ratings even if it adds no films. The CLI calls Letterboxd directly. This is the one piece of logic the domain-module refactor (§3) deliberately did *not* try to unify — the transport difference is real, not incidental duplication.
 
 ## 5. The CLI's write path, and the packaging bug caught before it shipped
 
@@ -86,11 +85,11 @@ During the CLI's initial build, a packaging defect was caught before publishing:
 
 ```javascript
 {
-  id: string,           // Letterboxd URI slug
+  id: string,           // Film identifier from the grid, CSV, or local entry
   title: string,
-  year: number,
-  director: string,     // from TMDB
-  rating: number,        // 0.5–5.0, null if unrated
+  year: number | null,
+  director: string | null,
+  rating: number | null, // 0.5–5.0 when rated
   watchedDate: string,   // ISO date YYYY-MM-DD
   rewatch: boolean,
   tags: string[],
@@ -105,11 +104,11 @@ During the CLI's initial build, a packaging defect was caught before publishing:
   voteAvg: number,       // TMDB 0–10
   voteCount: number,
   popularity: number,
-  source: 'seed' | 'rss' | 'manual',
+  source: 'seed' | 'csv' | 'rss' | 'manual',
 }
 ```
 
-`source` distinguishes films from the original CSV-backed seed (real dates), films picked up by the live films-grid scrape (approximate dates, per §4), and films logged manually through `mg commit` in the terminal (`source: 'manual'`) — which affects how merge/dedup logic treats a re-poll of the same film.
+This is the browser entry shape. Metadata fields such as `tmdbId`, `poster`, and `runtime` can be null before enrichment. The `rss` source value is a legacy label for films-grid imports. The CLI works from grid rows and generally has no watch dates.
 
 ## 7. localStorage as the entire persistence layer
 
@@ -120,12 +119,14 @@ There is no backend, so all state lives in the browser's `localStorage`, accesse
 | `mg_history` | Full parsed film log |
 | `mg_tmdb_cache` | TMDB ID → enriched metadata |
 | `mg_dir_filmography` | Director name → `{ tmdbId, total }`, for the director-completion stat |
-| `mg_last_poll` | ISO timestamp of the last sync |
+| `mg_last_poll` | ISO timestamp of the last successful sync |
 | `mg_user_settings` | Visitor-supplied username/TMDB-key override (Settings panel) |
 | `mg_seed_version` | Which baked-in seed the current history was last merged against |
 | `mg_branches` / `mg_head` / `mg_stash` / `mg_reflog` | mg-terminal state: named film collections, active branch, watchlist, sync audit log |
 
-The CLI has its own, entirely separate persistence at `~/.config/moviegit/` (`config.json`, `credentials.json`, `cache.json`) — the two surfaces share logic (§3), not storage; there was never a design intent to sync state between a browser session and a terminal session.
+Guest links namespace history, sync time, import flags, and terminal state by handle. Theme and metadata caches are shared. Changing the active username in Settings clears the active history and seed state.
+
+The CLI has its own persistence at `~/.config/moviegit/` (`config.json`, `credentials.json`, `cache.json`) — the two surfaces share logic (§3), not storage; there was never a design intent to sync state between a browser session and a terminal session.
 
 ## 8. CI and verification gates
 
@@ -135,6 +136,6 @@ There is no test framework for either surface — a deliberate, disclosed choice
 - **`scripts/check-domain-sync.py`** — fails if the dashboard's inlined domain logic has drifted from `cli/src/domain.js` (§3).
 - **CLI job** — `node --check` on every source file, `mg --help` actually runs, and `npm pack --dry-run` is inspected for contents — the last of which exists specifically because of the packaging bug in §5.
 
-These three run on every push and pull request via `.github/workflows/ci.yml`, requiring zero secrets — appropriate for a project with no backend credentials.
+CI runs on pushes to `main` and on pull requests. From `cli/`, `npm run check` checks the shipped JavaScript and `prepublishOnly` runs the same check before publication.
 
-A separate workflow, `.github/workflows/a11y.yml`, runs an `axe-core` scan (via `npx @axe-core/cli`, so no persistent dependency is added to the repo) against the served page for WCAG 2 A/AA violations, with `--load-delay 800` so the scan runs after `.tab-panel`'s 200ms `fadeIn` settles (without it, axe can snapshot mid-fade and report false contrast failures on nearly every text node — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md#color-contrast--fixed-two-lessons-kept-for-the-record) for how that inflated the first run's count to 71 when only 3 were real). Both real violations are fixed and the job runs with `--exit` (blocking) — the same reasoning that keeps `check-syntax.py`/`check-domain-sync.py` narrow and targeted rather than a generic test suite: a verification gate is only useful while it's still telling you something you didn't already know.
+A separate workflow, `.github/workflows/a11y.yml`, runs an `axe-core` scan (via `npx @axe-core/cli`, so no persistent dependency is added to the repo) against the served page for WCAG 2 A/AA violations, with `--load-delay 800` so the scan runs after `.tab-panel`'s 200ms `fadeIn` settles (without it, axe can snapshot mid-fade and report false contrast failures on nearly every text node — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md#color-contrast--fixed-two-lessons-kept-for-the-record) for how that inflated the first run's count to 71 when only 3 were real). The real violations are fixed and the job runs with `--exit` (blocking) — the same reasoning that keeps `check-syntax.py`/`check-domain-sync.py` narrow and targeted rather than a generic test suite: a verification gate is only useful while it's still telling you something you didn't already know.

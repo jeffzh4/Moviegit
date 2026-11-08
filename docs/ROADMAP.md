@@ -1,7 +1,7 @@
 # MovieGit — Roadmap
 
 **Status:** Living document
-**Last updated:** 2026-08-02
+**Last updated:** 2026-11-07
 
 This is the committed, ordered plan: scoped work, not a brainstorm. Unscoped ideas live in [FUTURE_FEATURES.md](FUTURE_FEATURES.md); once something moves from "idea" to "planned," it moves here.
 
@@ -17,19 +17,19 @@ This is the committed, ordered plan: scoped work, not a brainstorm. Unscoped ide
 
 ### 2. Publish `moviegit` to the npm registry
 
-**Why it's next:** the README's own install instructions (`npm install -g moviegit`) are currently aspirational — the package has never been published. Everything before publishing is verified (`npm pack --dry-run` contents, `prepublishOnly` syntax gate, package-root packaging fixed per [ARCHITECTURE.md §5](ARCHITECTURE.md#5-the-clis-write-path-and-the-packaging-bug-caught-before-it-shipped)) — the remaining step is `npm login` + `npm publish`, both of which require the account owner's own npm identity.
+**Why it's next:** the CLI is currently installed from a clone. Publishing would make `npm install -g moviegit` available. Everything before publishing is verified (`npm pack --dry-run` contents, `prepublishOnly` syntax gate, package-root packaging fixed per [ARCHITECTURE.md §5](ARCHITECTURE.md#5-the-clis-write-path-and-the-packaging-bug-caught-before-it-shipped)) — the remaining step is `npm login` + `npm publish`, both of which require the account owner's own npm identity.
 
-**Definition of done:** `npm install -g moviegit` from a clean machine installs a working CLI; the README's install line is true rather than aspirational.
+**Definition of done:** `npm install -g moviegit` from a clean machine installs a working CLI; the README documents the registry install.
 
 ## Mid-term
 
 ### 3. A settings-driven multi-user experience that doesn't require reading source
 
-The Settings panel (shipped v1.5) already lets a visitor override the default username and TMDB key without forking the repo — a real but narrow gap-closer. It's a raw text input with no validation, no "does this account exist" check before the first sync attempt, and no persistence UX beyond "reload the page and hope." A fuller version would validate the handle against Letterboxd before committing to it, and surface the CLI's `mg login` output style ("✓ linked @user (Display Name)") in the browser too.
+Settings already lets visitors change the handle and TMDB key. It checks the public films grid before saving a new handle and warns when verification fails. The remaining work is a clearer first-run experience and better feedback when a profile cannot be loaded.
 
 ### 4. Director-completion expansion beyond the current top-12 cap
 
-The director-filmography-completion stat (Stats panel) currently only computes coverage for a director's top 12 films by design — a deliberate cap to keep the lazy TMDB person-API fetch cheap, not a data limitation. Raising or removing the cap is scoped but not yet built, pending a decision on whether the extra TMDB request volume is worth a marginally more complete stat.
+The director-filmography-completion stat (Stats panel) shows coverage for the 12 directors with the most logged films — a deliberate cap to keep the lazy TMDB person-API fetch cheap, not a data limitation. Raising or removing the cap is scoped but not yet built, pending a decision on whether the extra TMDB request volume is worth a marginally more complete stat.
 
 ### 5. Composer data from TMDB credits, replacing the curated map
 

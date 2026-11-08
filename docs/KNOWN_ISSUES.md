@@ -1,7 +1,7 @@
 # MovieGit — Known Issues
 
 **Status:** Living document — updated as issues are found, fixed, or accepted
-**Last updated:** 2026-08-02
+**Last updated:** 2026-11-07
 
 A disclosed-limitations list, not a bug tracker. Everything here is a current constraint of the shipped product, stated plainly so a reader doesn't have to take the README's confidence at face value. Items move to [CHANGELOG.md](../CHANGELOG.md) once fixed, not silently off this list.
 
@@ -25,7 +25,7 @@ Letterboxd serves page 1 of the films grid to any client, but returns `403` for 
 
 ### The CORS proxy chain is a real single point of partial failure
 
-The browser dashboard has no direct network access to Letterboxd, so live sync depends on one of three public CORS proxies (`allorigins.win`, `cors.eu.org`, `codetabs.com`, tried in order) succeeding. These are free, rate-limited services outside this project's control, and have been observed failing under moderate testing load. A failed sync cycle is non-fatal (the dashboard keeps rendering the last successfully-synced history), but "live" sync has an occasionally visible latency floor that has nothing to do with this codebase.
+The browser dashboard has no direct network access to Letterboxd, so live sync depends on one of three public CORS proxies (`allorigins.win`, `cors.eu.org`, `codetabs.com`, tried in order) succeeding. These are free, rate-limited services outside this project's control, and have been observed failing under moderate testing load. A failed sync cycle is non-fatal (the dashboard keeps its stored history and the timestamp of the last successful sync), but "live" sync has an occasionally visible latency floor that has nothing to do with this codebase.
 
 ### The Letterboxd scrape depends on undocumented HTML structure
 
@@ -49,12 +49,12 @@ Neither `index.html` nor `cli/` has unit or integration tests. This is a stated,
 
 ### `npm publish` hasn't happened yet
 
-Covered in the roadmap ([ROADMAP.md §2](ROADMAP.md#2-publish-moviegit-to-the-npm-registry)) — the README's `npm install -g moviegit` instruction is currently aspirational.
+Covered in the roadmap ([ROADMAP.md §2](ROADMAP.md#2-publish-moviegit-to-the-npm-registry)) — use the local install instructions in the [CLI README](../cli/README.md#install).
 
 ## Scoped-out, not broken
 
 Intentional cuts that read like gaps, listed so they aren't mistaken for oversights:
 
 - **Composer data** comes from a small hand-curated map, not live TMDB credits — TMDB's composer-crew data is inconsistently populated, and a curated map was judged more reliable for the ~15 directors/composers the stat actually surfaces meaningfully for.
-- **Director-completion** is capped at a director's top 12 films by design, to bound TMDB person-API request volume.
+- **Director-completion** is shown for the 12 directors with the most logged films, to bound TMDB person-API request volume.
 - **No watchlist management, no social features, no Letterboxd OAuth** — all explicit non-goals; see [PRD.md §4](PRD.md#4-non-goals).

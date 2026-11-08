@@ -5,8 +5,7 @@
  *   credentials.json  Letterboxd session cookie, if provided (0600)
  *   cache.json        last synced film list                  (0600)
  *
- * Credentials never leave this machine. They are sent only to letterboxd.com,
- * on requests you explicitly trigger with `mg commit`.
+ * The session cookie is used for Letterboxd authentication checks and diary writes.
  */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
